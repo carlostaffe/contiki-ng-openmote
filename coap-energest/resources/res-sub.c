@@ -31,25 +31,40 @@
 
 /**
  * \file
- *      Erbium (Er) example project configuration.
+ *      Example resource
  * \author
  *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+#include <stdio.h>
+#include <string.h>
+#include "coap-engine.h"
 
-#define LOG_LEVEL_APP LOG_LEVEL_DBG
+static void res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-struct energest_t {
-	static unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
-	         last_deep_lpm;
-	static unsigned long delta_tx, delta_rx, delta_time, delta_cpu, delta_lpm,
-			             delta_deep_lpm;
-	static unsigned long curr_tx, curr_rx, curr_time, curr_cpu, curr_lpm,
-				       curr_deep_lpm;
+/*
+ * Example for a resource that also handles all its sub-resources.
+ * Use coap_get_url() to multiplex the handling of the request depending on the Uri-Path.
+ */
+PARENT_RESOURCE(res_sub,
+                "title=\"Sub-resource demo\"",
+                res_get_handler,
+                NULL,
+                NULL,
+                NULL);
 
-};
+static void
+res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+  coap_set_header_content_format(response, TEXT_PLAIN);
 
-extern struct energest_t energy;
-#endif /* PROJECT_CONF_H_ */
+  const char *uri_path = NULL;
+  int len = coap_get_header_uri_path(request, &uri_path);
+  int base_len = strlen(res_sub.url);
+
+  if(len == base_len) {
+    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "Request any sub-resource of /%s", res_sub.url);
+  } else {
+    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, ".%.*s", len - base_len, uri_path + base_len);
+  } coap_set_payload(response, buffer, strlen((char *)buffer));
+}

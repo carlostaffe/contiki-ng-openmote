@@ -50,7 +50,7 @@
 #include "dev/button-sensor.h"
 #include "dev/max44009.h"
 #include "dev/sht21.h"
-
+#include "sys/energest.h"
 
 /* Log configuration */
 #include "sys/log.h"
@@ -60,31 +60,11 @@
  * Resources to be activated need to be imported through the extern keyword.
  * The build system automatically compiles the resources in the corresponding sub-directory.
  */
-extern coap_resource_t
-  res_hello,
-  res_mirror,
-  res_chunks,
-  res_separate,
-  res_push,
-  res_event,
-  res_sub,
-  res_b1_sep_b2,
-  res_energest;
-#if PLATFORM_HAS_LEDS
-extern coap_resource_t res_leds, res_toggle;
-#endif
-#if PLATFORM_HAS_LIGHT
-#include "dev/light-sensor.h"
-extern coap_resource_t res_light;
-#endif
-#if PLATFORM_HAS_BATTERY
-#include "dev/battery-sensor.h"
-extern coap_resource_t res_battery;
-#endif
 
-//temperatura
+// temperatura
 #include "dev/sht21.h"
-extern coap_resource_t res_temperature;
+#include "project-conf.h"
+extern coap_resource_t res_temperature, res_energest;
 
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
@@ -95,7 +75,6 @@ PROCESS_THREAD(er_example_server, ev, data)
 
   PROCESS_PAUSE();
 
-  
   LOG_INFO("Starting Erbium Example Server\n");
 
   /*
@@ -103,76 +82,35 @@ PROCESS_THREAD(er_example_server, ev, data)
    * WARNING: Activating twice only means alternate path, not two instances!
    * All static variables are the same for each URI path.
    */
-  coap_activate_resource(&res_hello, "test/hello");
-  coap_activate_resource(&res_mirror, "debug/mirror");
-  coap_activate_resource(&res_chunks, "test/chunks");
-  coap_activate_resource(&res_separate, "test/separate");
-  coap_activate_resource(&res_push, "test/push");
-#if PLATFORM_HAS_BUTTON
-  coap_activate_resource(&res_event, "sensors/button");
-#endif /* PLATFORM_HAS_BUTTON */
-  coap_activate_resource(&res_sub, "test/sub");
   // prueba para energia
+  energy.last_time = 0;
   coap_activate_resource(&res_energest, "test/energest");
-  coap_activate_resource(&res_b1_sep_b2, "test/b1sepb2");
-#if PLATFORM_HAS_LEDS
-/*  coap_activate_resource(&res_leds, "actuators/leds"); */
-  coap_activate_resource(&res_toggle, "actuators/toggle");
-#endif
-#if PLATFORM_HAS_LIGHT
-  coap_activate_resource(&res_light, "sensors/light");
-  SENSORS_ACTIVATE(light_sensor);
-#endif
-#if PLATFORM_HAS_BATTERY
-  coap_activate_resource(&res_battery, "sensors/battery");
-  SENSORS_ACTIVATE(battery_sensor);
-#endif
+  /* coap_activate_resource(&res_temperature, "sensors/temperature"); */
 
-  coap_activate_resource(&res_temperature, "sensors/temperature");
-  coap_activate_resource(&res_temperature, "sensors/energest");
   // SENSORS_ACTIVATE(temperature_sensor);
-/* Initialize the SHT21 sensor */
+  /* Initialize the SHT21 sensor */
   uint16_t sht21_present = SENSORS_ACTIVATE(sht21);
   if (sht21_present == SHT21_ERROR) {
-       printf("SHT21 sensor is NOT present!\n");
-       leds_on(LEDS_RED);
+    printf("SHT21 sensor is NOT present!\n");
+    leds_on(LEDS_RED);
   }
 
   /* Initialize Energest Module*/
-  struct energest_t {
-	  static unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
-				       last_deep_lpm;
-	  static unsigned long delta_tx, delta_rx, delta_time, delta_cpu, delta_lpm,
-			         delta_deep_lpm;
-	  static unsigned long curr_tx, curr_rx, curr_time, curr_cpu, curr_lpm,
-				           curr_deep_lpm;
-  } energy;
+  /* struct energest_t energy = {0}; */
   energest_flush();
-  last_time = ENERGEST_GET_TOTAL_TIME();
-  last_cpu = energest_type_time(ENERGEST_TYPE_CPU);
-  last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
-  curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
-  last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
-  last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
-	     
+
+  energy.last_time = ENERGEST_GET_TOTAL_TIME();
+  energy.last_cpu = energest_type_time(ENERGEST_TYPE_CPU);
+  energy.last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
+  energy.curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
+  energy.last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
+  energy.last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
+  if(energy.last_time)
+    LOG_DBG("*******BUTTON*******\n");
+
   /* Define application-specific events here. */
   while(1) {
     PROCESS_WAIT_EVENT();
-#if PLATFORM_HAS_BUTTON
-#if PLATFORM_SUPPORTS_BUTTON_HAL
-    if(ev == button_hal_release_event) {
-#else
-    if(ev == sensors_event && data == &button_sensor) {
-#endif
-      LOG_DBG("*******BUTTON*******\n");
-
-      /* Call the event_handler for this application-specific event. */
-      res_event.trigger();
-
-      /* Also call the separate response example handler. */
-      res_separate.resume();
-    }
-#endif /* PLATFORM_HAS_BUTTON */
   }                             /* while (1) */
 
   PROCESS_END();

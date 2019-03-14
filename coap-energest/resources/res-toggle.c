@@ -31,25 +31,32 @@
 
 /**
  * \file
- *      Erbium (Er) example project configuration.
+ *      Example resource
  * \author
  *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+#include "contiki.h"
+#include "coap-engine.h"
+#include "dev/leds.h"
 
-#define LOG_LEVEL_APP LOG_LEVEL_DBG
+#include <string.h>
 
-struct energest_t {
-	static unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
-	         last_deep_lpm;
-	static unsigned long delta_tx, delta_rx, delta_time, delta_cpu, delta_lpm,
-			             delta_deep_lpm;
-	static unsigned long curr_tx, curr_rx, curr_time, curr_cpu, curr_lpm,
-				       curr_deep_lpm;
+#if PLATFORM_HAS_LEDS || LEDS_COUNT
 
-};
+static void res_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-extern struct energest_t energy;
-#endif /* PROJECT_CONF_H_ */
+/* A simple actuator example. Toggles the red led */
+RESOURCE(res_toggle,
+         "title=\"Red LED\";rt=\"Control\"",
+         NULL,
+         res_post_handler,
+         NULL,
+         NULL);
+
+static void
+res_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+  leds_toggle(LEDS_RED);
+}
+#endif /* PLATFORM_HAS_LEDS */
