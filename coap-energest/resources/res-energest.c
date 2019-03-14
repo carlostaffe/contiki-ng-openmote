@@ -73,10 +73,38 @@ static unsigned long to_permil(unsigned long delta_metric, unsigned long delta_t
     unsigned int accept = -1;
     coap_get_header_accept(request, &accept);
 
+    /* LOG_INFO("--- Period summary #%u (%lu seconds)\n", count++, */
+             /* energy.delta_time / ENERGEST_SECOND); */
+    /* LOG_INFO("Total time  : %10lu\n", energy.delta_time); */
+    /* LOG_INFO("CPU         : %10lu/%10lu (%lu permil)\n", energy.delta_cpu, */
+             /* energy.delta_time, to_permil(energy.delta_cpu, energy.delta_time)); */
+    /* LOG_INFO("LPM         : %10lu/%10lu (%lu permil)\n", energy.delta_lpm, */
+    /*          delta_time, to_permil(delta_lpm, delta_time)); */
+    /* LOG_INFO("Deep LPM    : %10lu/%10lu (%lu permil)\n", */
+    /* energy.delta_deep_lpm, */
+             /* delta_time, to_permil(delta_deep_lpm, delta_time)); */
+    /* LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", energy.delta_tx, */
+             /* delta_time, to_permil(delta_tx, delta_time)); */
+    /* LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", energy.delta_rx, */
+             /* delta_time, to_permil(delta_rx, delta_time)); */
+    /* LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n", */
+             /* energy.delta_tx + delta_rx, delta_time, */
+             /* to_permil(delta_tx + delta_rx, delta_time)); */
+
     if (accept == -1 || accept == TEXT_PLAIN) {
       coap_set_header_content_format(response, TEXT_PLAIN);
-      snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%lu;%lu",
-               energy.delta_time, energy.delta_tx);
+      snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu",
+               energy.delta_time / ENERGEST_SECOND, energy.delta_time,
+               energy.delta_cpu, energy.delta_time,
+               to_permil(energy.delta_cpu, energy.delta_time), energy.delta_lpm,
+               energy.delta_time, to_permil(energy.delta_lpm, energy.delta_time),
+               energy.delta_deep_lpm, energy.delta_time,
+               to_permil(energy.delta_deep_lpm, energy.delta_time), energy.delta_tx,
+               energy.delta_time, to_permil(energy.delta_tx, energy.delta_time),
+               energy.delta_rx, energy.delta_time,
+               to_permil(energy.delta_rx, energy.delta_time), energy.delta_tx + energy.delta_rx,
+               energy.delta_time, to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
+
       coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
     } else if (accept == APPLICATION_XML) {
       coap_set_header_content_format(response, APPLICATION_XML);
@@ -138,16 +166,16 @@ static unsigned long to_permil(unsigned long delta_metric, unsigned long delta_t
     LOG_INFO("Total time  : %10lu\n", energy.delta_time);
     LOG_INFO("CPU         : %10lu/%10lu (%lu permil)\n", energy.delta_cpu,
              energy.delta_time, to_permil(energy.delta_cpu, energy.delta_time));
-    /* LOG_INFO("LPM         : %10lu/%10lu (%lu permil)\n", energy.delta_lpm, */
-    /*          delta_time, to_permil(delta_lpm, delta_time)); */
-    /* LOG_INFO("Deep LPM    : %10lu/%10lu (%lu permil)\n",
-     * energy.delta_deep_lpm, */
-    /*          delta_time, to_permil(delta_deep_lpm, delta_time)); */
-    /* LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", energy.delta_tx, */
-    /*          delta_time, to_permil(delta_tx, delta_time)); */
-    /* LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", energy.delta_rx, */
-    /*          delta_time, to_permil(delta_rx, delta_time)); */
-    /* LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n", */
-    /*          energy.delta_tx + delta_rx, delta_time, */
-    /*          to_permil(delta_tx + delta_rx, delta_time)); */
+    LOG_INFO("LPM         : %10lu/%10lu (%lu permil)\n", energy.delta_lpm,
+             energy.delta_time, to_permil(energy.delta_lpm, energy.delta_time));
+    LOG_INFO("Deep LPM    : %10lu/%10lu (%lu permil)\n",
+    energy.delta_deep_lpm,
+             energy.delta_time, to_permil(energy.delta_deep_lpm, energy.delta_time));
+    LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", energy.delta_tx,
+             energy.delta_time, to_permil(energy.delta_tx, energy.delta_time));
+    LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", energy.delta_rx,
+             energy.delta_time, to_permil(energy.delta_rx, energy.delta_time));
+    LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n",
+             energy.delta_tx + energy.delta_rx, energy.delta_time,
+             to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
   }
