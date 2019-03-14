@@ -99,3 +99,5 @@ Hay un tmux corriendo
 	tmux -l  ( una sesion corre el connect-router y la otra la app de python que consume coap y escribe en la influxdb
 	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
 
+TODO:
+
