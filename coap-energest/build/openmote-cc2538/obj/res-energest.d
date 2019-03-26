@@ -1,5 +1,9 @@
-build/openmote-cc2538///obj/res-energest.o: resources/res-energest.c \
- ../../os/net/app-layer/coap/module-macros.h ../../os/contiki.h \
+build/openmote-cc2538///obj/res-energest.o: res-energest.c \
+ ../../os/net/app-layer/coap/module-macros.h \
+ ../../os/net/app-layer/coap/coap-engine.h \
+ ../../os/net/app-layer/coap/coap.h \
+ ../../os/net/app-layer/coap/coap-constants.h \
+ ../../os/net/app-layer/coap/coap-conf.h ../../os/contiki.h \
  ../../arch/platform/openmote-cc2538/./contiki-conf.h project-conf.h \
  ../../arch/cpu/cc2538/./cc2538-def.h \
  ../../arch/cpu/cc2538/../arm/cortex-m/cm3/cm3-def.h \
@@ -21,11 +25,7 @@ build/openmote-cc2538///obj/res-energest.o: resources/res-energest.c \
  ../../os/sys/etimer.h ../../os/sys/rtimer.h ../../os/dev/watchdog.h \
  ../../arch/cpu/cc2538/./rtimer-arch.h \
  ../../arch/cpu/cc2538/./dev/gptimer.h ../../os/sys/pt.h \
- ../../os/sys/clock.h ../../os/net/app-layer/coap/coap-engine.h \
- ../../os/net/app-layer/coap/coap.h \
- ../../os/net/app-layer/coap/coap-constants.h \
- ../../os/net/app-layer/coap/coap-conf.h \
- ../../os/net/app-layer/coap/coap-transport.h \
+ ../../os/sys/clock.h ../../os/net/app-layer/coap/coap-transport.h \
  ../../os/net/app-layer/coap/coap-endpoint.h ../../os/net/ipv6/uip.h \
  ../../os/net/ipv6/uipopt.h ../../os/net/ipv6/uipbuf.h \
  ../../os/net/linkaddr.h ../../os/net/ipv6/tcpip.h \
@@ -37,8 +37,12 @@ build/openmote-cc2538///obj/res-energest.o: resources/res-energest.c \
  ../../os/net/app-layer/coap/coap-observe-client.h \
  ../../os/sys/energest.h resources/../project-conf.h ../../os/sys/log.h \
  ../../os/sys/log-conf.h
-resources/res-energest.c :
- ../../os/net/app-layer/coap/module-macros.h ../../os/contiki.h :
+res-energest.c :
+ ../../os/net/app-layer/coap/module-macros.h :
+ ../../os/net/app-layer/coap/coap-engine.h :
+ ../../os/net/app-layer/coap/coap.h :
+ ../../os/net/app-layer/coap/coap-constants.h :
+ ../../os/net/app-layer/coap/coap-conf.h ../../os/contiki.h :
  ../../arch/platform/openmote-cc2538/./contiki-conf.h project-conf.h :
  ../../arch/cpu/cc2538/./cc2538-def.h :
  ../../arch/cpu/cc2538/../arm/cortex-m/cm3/cm3-def.h :
@@ -60,11 +64,7 @@ resources/res-energest.c :
  ../../os/sys/etimer.h ../../os/sys/rtimer.h ../../os/dev/watchdog.h :
  ../../arch/cpu/cc2538/./rtimer-arch.h :
  ../../arch/cpu/cc2538/./dev/gptimer.h ../../os/sys/pt.h :
- ../../os/sys/clock.h ../../os/net/app-layer/coap/coap-engine.h :
- ../../os/net/app-layer/coap/coap.h :
- ../../os/net/app-layer/coap/coap-constants.h :
- ../../os/net/app-layer/coap/coap-conf.h :
- ../../os/net/app-layer/coap/coap-transport.h :
+ ../../os/sys/clock.h ../../os/net/app-layer/coap/coap-transport.h :
  ../../os/net/app-layer/coap/coap-endpoint.h ../../os/net/ipv6/uip.h :
  ../../os/net/ipv6/uipopt.h ../../os/net/ipv6/uipbuf.h :
  ../../os/net/linkaddr.h ../../os/net/ipv6/tcpip.h :

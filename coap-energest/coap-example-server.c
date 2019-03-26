@@ -64,7 +64,7 @@
 // temperatura
 #include "dev/sht21.h"
 #include "project-conf.h"
-extern coap_resource_t res_temperature, res_energest;
+extern coap_resource_t res_temperature, res_energest_periodic;
 
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
@@ -83,9 +83,9 @@ PROCESS_THREAD(er_example_server, ev, data)
    * All static variables are the same for each URI path.
    */
   // prueba para energia
-  energy.last_time = 0;
-  coap_activate_resource(&res_energest, "test/energest");
-  /* coap_activate_resource(&res_temperature, "sensors/temperature"); */
+  /* coap_activate_resource(&res_energest, "test/energest"); */
+  coap_activate_resource(&res_energest_periodic, "test/energest");
+  coap_activate_resource(&res_temperature, "sensors/temperature");
 
   // SENSORS_ACTIVATE(temperature_sensor);
   /* Initialize the SHT21 sensor */
@@ -105,6 +105,7 @@ PROCESS_THREAD(er_example_server, ev, data)
   energy.curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
   energy.last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   energy.last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
+
   if(energy.last_time)
     LOG_DBG("*******BUTTON*******\n");
 

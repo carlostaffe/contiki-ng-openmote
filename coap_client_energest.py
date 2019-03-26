@@ -70,7 +70,11 @@ async def main():
                 print('[ERROR] Recurso no obtenido')
                 print(e)
             else:
-                print(response.payload)
+                #print(response.payload)
+                vals = str(response.payload)
+                vals = vals.split(';')
+                for val in vals:
+                    print(val)
                 #temperatura = int(response.payload)
                 #post_data(requests.index(request),'Mendoza', temperatura)
 

@@ -1,0 +1,3 @@
+* Errores de Compilación
+** Deshabilitar Warnings como Errores
+Por defecto, =contiki-ng= interpreta 
