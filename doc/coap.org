@@ -1,0 +1,103 @@
+* Servidores
+   Los servidores CoAP se encuentran en los motes. Cada aplicacion disponibiliza una serie de recursos bajo una =URI= determinada. 
+   #+begin_example
+     coap://[2801:1e:4007:c0da:212:4b00:430:5381]/sensors/temperature
+   #+end_example
+   
+   
+
+* Clientes
+  Los clientes son quiene leen los recursos disponibilizados por los servidores. Normalmente el cliente el el router de borde (ej: raspberry).
+   
+  Para el cliente se utiliza la librería =aiocoap=. Importante es instalarla con pip pues raspbian tiene una versión antigua, la cual no permite observar recursos.
+   
+  En =apps/coap-example-energest/= se utiliza un cliente python llamado =simple_observe.py= (el programador supuso que iba a ser simple). 
+  Este programa realiza lo siguiente:
+  1) Pide al border_router la lista de nodos que éste puede ver. Obtiene una lista de direcciones IPv6.
+  2) En base a la lista de nodos y a las URIs de los recursos predefinidos, crea una serie de peticiones CoAP. Si existen 4 nodos y cada nodo tiene 3 recursos se crean 12 peticiones.
+     #+begin_src python
+     (aiocoap.Message(
+         code=aiocoap.Code.GET, uri='coap://[' + node + ']/' + uri, observe=0))
+      #+end_src
+      Contraintuitivo es que el parametro =observe=0= en realidad está indicando que se _debe_ observar el recurso.
+  3) Crea un loop asincrono, el cual actua como planificador de eventos asíncronos[fn:1]. Con 4 nodos y 3 recursos por nodo, se crean 12 /threads/ para observar una petición.
+  4) Para cada petición, se registra un /callback/ que es una función encargada de ejecutar ciertas acciones cada vez que se obtiene una respuesta a la petición.
+        #+begin_src python
+          msg.observation.register_callback(observation_cb)
+        #+end_src
+        En este caso =observation_cb= es una función que atiende las respuestas a las peticiones =OBSERVE=
+  5) En el callback que atiende las observaciones, se envia el dato a InfluxDB
+  6) NOTE: El programador, en su limitada sabiduría, utilizó el módulo =logging= para /autodocumentar/ el funcionamiento del programa. Se sugiere al lector interesado en comprender el funcionamiento en aumentar el nivel del logging:
+     #+begin_src python
+       # cambiar esta linea
+       logging.basicConfig(level=logging.INFO)
+       # por esta otra
+       logging.basicConfig(level=logging.DEBUG)
+     #+end_src
+   
+* Recursos
+** Definición
+  En =Contiki= los recursos son programados en archivos fuentes separados, lo que permite un mecanismo =plug and play=. Por ejemplo, en =examples/coap/coap-example-server/resources/= se puede encontrar una serie de recursos los cuales pueden ser consultados.
+** Consultas
+  Hay dos formas de consultar un recurso: 
+  1) Mandar =GET= a intervalos determinados por el cliente
+  2) /Observar/ un recurso, o enviar petición =OBSERVE=. Esto es similar al mecanismo de /suscripción/ de =MQTT=. 
+  Para observar un recurso el cliente debe expresar su intención de observarlo, tras lo cual el servidor envia /updates/ períodicas según un criterio establecido por el mismo servidor.
+
+  El primer método no es complejo, pero el mecanismo de observación necesita mayor explicaciones.
+  Para definir un recurso observable en =contiki=:
+        1) En el proceso del servidor (ej: =coap-example-server.c=):
+           #+begin_src c
+             // definir las estructuras que continen info del recurso
+             extern coap_resource_t res_temperature, res_energest_periodic;
+             // activar el recurso y definir el path al mismo
+             coap_activate_resource(&res_energest_periodic, "test/energest");
+             coap_activate_resource(&res_temperature, "sensors/temperature");
+           #+end_src
+            
+        2) En el archivo fuente del recurso (ej: =res-temperatura.c=):
+            #+begin_src C
+              // handler para atender peticiones GET
+              static void res_get_handler(coap_message_t *request, coap_message_t *response,
+                                          uint8_t *buffer, uint16_t preferred_size,
+                                          int32_t *offset);
+              // handler para observar el recurso
+              static void res_periodic_handler(void);
+              // definición del recurso. el primer parametro es la estructura definida en el
+              // .c del servidor, el segundo un string que brinda info al .well-knwon, tercer
+              // el handler encargado de atender las peticiones GET el penultimo es el
+              // intevalo de envio de updates de observaciones (10 segundos) el ultimo el
+              // handler de las observaciones
+              PERIODIC_RESOURCE(res_temperature,
+                                "title=\"Temperature\";rt=\"Temperature\";obs",
+                                res_get_handler, NULL, NULL, NULL, 10000,
+                                res_periodic_handler);
+
+
+              // definicion dle handler
+              static void res_periodic_handler() {
+                // tomo nuevo valor de lectura
+                temperature = sht21.value(SHT21_READ_TEMP);
+                // actualizo un contador
+                ++interval_counter;
+
+                // defino un criterio de envio de datos
+                if ((abs(temperature - temperature_old) >= CHANGE &&
+                     interval_counter >= INTERVAL_MIN) ||
+                    interval_counter >= INTERVAL_MAX) {
+                  interval_counter = 0;
+                  temperature_old = temperature;
+    
+                  // notifico a los observadores
+                  coap_notify_observers(&res_temperature);
+                }
+              }
+            #+end_src
+            Importante es notar que si bien el handler de observación se ejecuta en un intervalo fijo, cabe la posibilidad de que se determine innecesario enviar la actualización.
+            #+begin_example
+            En el programa de arriba, el handler se ejecuta cada 10 segundos, pero también se chequea una condición para enviar datos: esta es que la diferencia entre dos lecturas supere un delta. Esto permitiria evitar enviar lecturas repetidas y ahorrar energía.
+            #+end_example
+
+* Footnotes
+
+[fn:1] No voy a explicar cómo funciona el modulo =asyncio= porque es complejo y no la tengo muy clara tampoco.

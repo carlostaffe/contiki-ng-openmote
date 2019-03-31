@@ -1,0 +1,6 @@
+* Border Router
+** tunslip
+   Lanzarlo desde una aplicación con RPL-BR
+   #+begin_src bash
+     make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
+   #+end_src

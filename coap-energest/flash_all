@@ -1,0 +1,4 @@
+make coap-example-server.upload PORT=/dev/ttyUSB1
+make coap-example-server.upload PORT=/dev/ttyUSB2
+
+make coap-example-server.upload PORT=/dev/ttyUSB3 BOARD_REVISION=REV_A1

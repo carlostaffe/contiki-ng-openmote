@@ -1,3 +1,4 @@
-* Errores de Compilación
-** Deshabilitar Warnings como Errores
-Por defecto, =contiki-ng= interpreta 
+* Compilacion
+** Deshabilitar Warnings como Errors
+   Por defecto (es una buena práctica), el makefile de contiki indica que todos los warnings deben ser tratados como errores.
+   Para deshabilitar (no recomendado) este comportamiento basta con agregar al comando make =WERROR=0=

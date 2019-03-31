@@ -69,7 +69,7 @@ PERIODIC_RESOURCE(res_temperature,
          NULL,
          NULL,
          NULL,
-         1000,
+         10000,
          res_periodic_handler);
 
 static void
@@ -91,7 +91,6 @@ res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buff
   if(accept == -1 || accept == TEXT_PLAIN) {
     coap_set_header_content_format(response, TEXT_PLAIN);
     snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%d", temperature);
-
     coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
   } else if(accept == APPLICATION_JSON) {
     coap_set_header_content_format(response, APPLICATION_JSON);
