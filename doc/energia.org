@@ -1,0 +1,78 @@
+* Software-based On-line Energy Estimation for SensorNodes
+Paper original que describe el funcionamiento en =contiki-os=. Es posible que la implementación en =contiki-ng= sea diferente.
+
+** Funcionamiento
+Cuando un componente (radio, sensor, led) es encendido, energest almacena un /timestamp/(=rtimer ticks=). En el instante en el que se apaga el componente, se produce un nuevo /timestamp/ y se calcula un delta y agregado a un total que indica cuanto tiempo ha permanecido encendido dicho módulo. 
+Energest mantiene una tabla con una lista de los componentes y el tiempo durante el cual han permanecido encendidos.
+
+El consumo de un módulo es estimado ante un cambio de estado, en el caso de la CPU cuando pasa de modo normal a modo de ahorro de energía.
+
+El registro de tiempo se realiza mediante /on chip timers/ los cuales (al menos para =MSP430=) permanecen activos durante el modo de bajo consumo.
+
+** Consideraciones especiales
++ Battery Lifetime Estimation :: No es posible traducir el consumo promedio en tiempo de vida de un mote alimentado por batería pues las baterías no son lineales.
++ Elementos no lineales :: Ciertos componentes del HW son no lineales, de tal manera que el consumo no se puede calcular como la suma de los consumos individuales de cada componente.
+
+* Energest rontiki-ng
+https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-Energest
+** Tipos 
+Existen al menos cinco tipos predefinidos que reconocen todas las plataformas. 
+| ENERGEST_TYPE_CPU      | Tiempo de actividad de la CPU |
+| ENERGEST_TYPE_LPM      | Tiempo de Low Power Mode      |
+| ENERGEST_TYPE_DEEP_LPM | Tiempo de Deep Low Power Mode |
+| ENERGEST_TYPE_TRANSMIT | Tiempo de transmisión         |
+| ENERGEST_TYPE_LISTEN   | Tiempo de recepción           |
+
+Para leer cualquiera de estos, se puede utilizar la función =energest_type_time(<tipo>)=. Ej:
+
+#+begin_src c
+  energest_flush();
+  unsigned long last_time = ENERGEST_GET_TOTAL_TIME();
+  unsigned long last_cpu = energest_type_time(ENERGEST_TYPE_CPU);
+  unsigned long last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
+  unsigned long curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
+  unsigned long last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
+  unsigned long last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
+#+end_src
+
+No en todos los CPU funcionan en LPM y en Deep LPM. 
+
+Para el CC2538 (openmote) se lee lo siguiente en el datasheet:
+| Active-Mode RX (CPUIdle)                                                         | 20 mA  |
+| Active-Mode TX at 0 dBm(CPUIdle)                                                 | 24 mA  |
+| PowerMode1 (4-μs Wake-Up,32-KBRAMRetention,Full RegisterRetention)               | 0.6 mA |
+| PowerMode2 (SleepTimerRunning,16-KBRAMRetention,ConfigurationRegisterRetention)  | 1.3 uA |
+| PowerMode3 (ExternalInterrupts,16-KBRAMRetention,ConfigurationRegisterRetention) | 0.4 uA |
+
+FIXME: que estos modos existan, no significa que se encuentren implementados en contiki-ng.
+
+FIXME: Es posible también que una plataforma defina nuevos tipos para energest, por ejemplo para el sensor de temperatura,led, etc.
+** Definir tipos nuevos
+Debe ser posible (no probado) hacer un perfilaje energético de una función en una aplicación.
+Esto puede ser útil para, por ejemplo, calcular qué tanta energía utiliza el CPU en realizar una tarea (enviar un mensaje o una serie de mensajes).
+
+* Low Power Mode - LPM
+
+** Intro
+
+Contiki define tres tipos de modos de ahorro de energía. Estos son ordenados del modo de menor al mayor ahorro: PM0, PM1 y PM2
+
+** Heurística para poner o no al CPU en /low power mode/
+
+Cuando el planificador determina que todos los eventos han sido atendidos, llama a =lpm_enter(void)=, la cual decide en qué modo LPM 0, 1 o 2 pone al procesador.
+
+El modo de ahorro es elegido en función de los siguientes criterios:
++ Esta apagado el RF?
++ Los periféricos registrados permiten PM1+?
++ Se disparará una interrupción de sleep timer?
+ 
+Si la respuesta a cualquiera es no, el CPU pasa a PM0 y se despertará ante cualquier interrupción.
+
+Caso contrario pasa a PM1 o PM2 según la duración prevista del sueño.
+
+
+
+** PM1+
+En modo PM1 o PM2 la CPU cambiar la frecuencia de trabajo a 16MHz. Además cómo no tiene timers, el proceso es ininterrumpible y tiene una duración predeterminada.
+
+Notar que mientras en PM0 la radio puede estar encendida, en PM1+ esto no es posible.
