@@ -70,9 +70,102 @@ Si la respuesta a cualquiera es no, el CPU pasa a PM0 y se despertará ante cual
 
 Caso contrario pasa a PM1 o PM2 según la duración prevista del sueño.
 
-
-
 ** PM1+
 En modo PM1 o PM2 la CPU cambiar la frecuencia de trabajo a 16MHz. Además cómo no tiene timers, el proceso es ininterrumpible y tiene una duración predeterminada.
 
 Notar que mientras en PM0 la radio puede estar encendida, en PM1+ esto no es posible.
+
+** lpm.c - Comentado
+
+En este apartado, intento explicar el funcionamiento del modo de ahorro de energía. Según se ve en el archivo fuente =arch/cpu/cc2538/lpm.c=
+
+ En primer lugar se revisa el flag =LPM_CONF_ENABLE=:
+#+begin_src c
+#if LPM_CONF_ENABLE != 0
+#+end_src
+ Luego se definen intervalos de duración de los modos PM1+, en términos de ticks de rtimer. Según el comentario del código, un tick dura alrededor de 30.5 usec.
+La lógica es que si la duración del período libre de interrupciones es menor a los thresholds a continuación definidos, no entrar en PM+1. Recordar que existe un período de transición entre los modos, por lo cual, no tiene sentido caer a PM1+ si se debe despertar poco tiempo después.
+ #+begin_src c
+/*---------------------------------------------------------------------------*/
+/*
+ * Deep Sleep thresholds in rtimer ticks (~30.5 usec)
+ *
+ * If Deep Sleep duration < DEEP_SLEEP_PM1_THRESHOLD, simply enter PM0
+ * If duration < DEEP_SLEEP_PM2_THRESHOLD drop to PM1
+ * else PM2.
+ */
+#define DEEP_SLEEP_PM1_THRESHOLD    10
+#define DEEP_SLEEP_PM2_THRESHOLD    100
+ #+end_src
+ FIXME: No estoy seguro lo que hace esto. 
+ #+begin_src c
+ /*---------------------------------------------------------------------------*/
+#define assert_wfi() do { __asm("wfi"::); } while(0)
+/*---------------------------------------------------------------------------*/
+ #+end_src
+ 
+ El siguiente bloque declara 3 estructuras rtimer en las cuales se guardan estadísticas que indican cuanto tiempo pasó el cpu en cada modo de ahorro de energía.
+ Además define macros para iniciar y actualizar las estructuras.
+#+begin_src c
+  #if LPM_CONF_STATS
+  rtimer_clock_t lpm_stats[3];
+
+  #define LPM_STATS_INIT()                                                       \
+    do {                                                                         \
+      memset(lpm_stats, 0, sizeof(lpm_stats));                                   \
+    } while (0)
+  #define LPM_STATS_ADD(pm, val)                                                 \
+    do {                                                                         \
+      lpm_stats[pm] += val;                                                      \
+    } while (0)
+  #else
+  #define LPM_STATS_INIT()
+  #define LPM_STATS_ADD(stat, val)
+  #endif
+#+end_src
+ En la siguiente variable se guarda el máximo PM permitido.
+#+begin_src c
+/*---------------------------------------------------------------------------*/
+/* Stores the currently specified MAX allowed PM */
+static uint8_t max_pm;
+/*---------------------------------------------------------------------------*/
+#+end_src
+
+Define un entero, que será utilizado para inicializar punteros a funciones. Las cuales a su vez serán utilizadas para chequear si un periférico permite PM1. Si no se ha definido un valor, defaultea a 5.
+#+begin_src c
+/*---------------------------------------------------------------------------*/
+/* Buffer to store peripheral PM1+ permission FPs */
+#ifdef LPM_CONF_PERIPH_PERMIT_PM1_FUNCS_MAX
+#define LPM_PERIPH_PERMIT_PM1_FUNCS_MAX LPM_CONF_PERIPH_PERMIT_PM1_FUNCS_MAX
+#else
+#define LPM_PERIPH_PERMIT_PM1_FUNCS_MAX 5
+#endif
+#+end_src
+
+Define N variables que son punteros a funciones =periph_permit_pm1_funcs= que regresan bool y toman void como parametro, con N igual a un número que creo que es la cantidad de funciones de atención a periféricos.
+NO estoy seguro.
+Las funciones registradas son llamadas por el módulo LPM para pedir permiso para pasar a PM1+.
+#+begin_src c
+  static lpm_periph_permit_pm1_func_t
+  periph_permit_pm1_funcs[LPM_PERIPH_PERMIT_PM1_FUNCS_MAX];
+ /*---------------------------------------------------------------------------*/
+ /* When changing power modes, the LPM driver will call all FPs registered with
+ * this function. The peripheral's function will return true or false to permit
+ *  prohibit PM1+ respectively. If at least one peripheral returns false, the
+ * SoC will drop to PM0 Deep Sleep instead.
+ */
+  static bool
+  periph_permit_pm1(void)
+  {
+    int i;
+
+    for(i = 0; i < LPM_PERIPH_PERMIT_PM1_FUNCS_MAX &&
+        periph_permit_pm1_funcs[i] != NULL; i++) {
+      if(!periph_permit_pm1_funcs[i]()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+#+end_src
