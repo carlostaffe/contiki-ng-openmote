@@ -36,21 +36,23 @@
  *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
  */
 
+#include "coap-engine.h"
+#include "contiki.h"
+#include "dev/button-hal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "contiki.h"
-#include "coap-engine.h"
-#include "dev/button-hal.h"
 
 // agregado por mi
+#include "dev/button-sensor.h"
 #include "dev/leds.h"
 #include "lib/sensors.h"
+#include "sys/energest.h"
+#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 #include "adxl346.h"
-#include "dev/button-sensor.h"
 #include "dev/max44009.h"
 #include "dev/sht21.h"
-#include "sys/energest.h"
+#endif
 
 /* Log configuration */
 #include "sys/log.h"
@@ -58,19 +60,17 @@
 #define LOG_LEVEL LOG_LEVEL_APP
 /*
  * Resources to be activated need to be imported through the extern keyword.
- * The build system automatically compiles the resources in the corresponding sub-directory.
+ * The build system automatically compiles the resources in the corresponding
+ * sub-directory.
  */
 
-// temperatura
-#include "dev/sht21.h"
 #include "project-conf.h"
 extern coap_resource_t res_temperature, res_energest_periodic;
 
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
 
-PROCESS_THREAD(er_example_server, ev, data)
-{
+PROCESS_THREAD(er_example_server, ev, data) {
   PROCESS_BEGIN();
 
   PROCESS_PAUSE();
@@ -83,10 +83,11 @@ PROCESS_THREAD(er_example_server, ev, data)
    * All static variables are the same for each URI path.
    */
   // prueba para energia
-  /* coap_activate_resource(&res_energest, "test/energest"); */
-  coap_activate_resource(&res_energest_periodic, "test/energest");
-  coap_activate_resource(&res_temperature, "sensors/temperature");
 
+  coap_activate_resource(&res_energest_periodic, "test/energest");
+
+#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+  coap_activate_resource(&res_temperature, "sensors/temperature");
   // SENSORS_ACTIVATE(temperature_sensor);
   /* Initialize the SHT21 sensor */
   uint16_t sht21_present = SENSORS_ACTIVATE(sht21);
@@ -94,7 +95,7 @@ PROCESS_THREAD(er_example_server, ev, data)
     printf("SHT21 sensor is NOT present!\n");
     leds_on(LEDS_RED);
   }
-
+#endif
   /* Initialize Energest Module*/
   /* struct energest_t energy = {0}; */
   energest_flush();
@@ -106,13 +107,13 @@ PROCESS_THREAD(er_example_server, ev, data)
   energy.last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   energy.last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
 
-  if(energy.last_time)
+  if (energy.last_time)
     LOG_DBG("*******BUTTON*******\n");
 
   /* Define application-specific events here. */
-  while(1) {
+  while (1) {
     PROCESS_WAIT_EVENT();
-  }                             /* while (1) */
+  } /* while (1) */
 
   PROCESS_END();
 }

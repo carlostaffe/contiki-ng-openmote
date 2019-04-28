@@ -83,8 +83,8 @@ En este apartado, intento explicar el funcionamiento del modo de ahorro de energ
 #+begin_src c
 #if LPM_CONF_ENABLE != 0
 #+end_src
- Luego se definen intervalos de duración de los modos PM1+, en términos de ticks de rtimer. Según el comentario del código, un tick dura alrededor de 30.5 usec.
-La lógica es que si la duración del período libre de interrupciones es menor a los thresholds a continuación definidos, no entrar en PM+1. Recordar que existe un período de transición entre los modos, por lo cual, no tiene sentido caer a PM1+ si se debe despertar poco tiempo después.
+Luego se definen intervalos de duración de los modos PM1+, en términos de ticks de rtimer. Según el comentario del código, un tick dura alrededor de 30.5 usec.
+La lógica es que si la duración del período libre de interrupciones es menor a los thresholds a continuación definidos, no entrar en PM+1. Recordar que existe un período de transición entre los modos, por lo cual, no tiene sentido caer a PM1+ si se debe despertar poco tiempo después. 
  #+begin_src c
 /*---------------------------------------------------------------------------*/
 /*
@@ -105,7 +105,8 @@ La lógica es que si la duración del período libre de interrupciones es menor 
  #+end_src
  
  El siguiente bloque declara 3 estructuras rtimer en las cuales se guardan estadísticas que indican cuanto tiempo pasó el cpu en cada modo de ahorro de energía.
- Además define macros para iniciar y actualizar las estructuras.
+ Además define macros para iniciar y actualizar las estructuras. En el comentario, se indica que estas estructuras son útiles para debug, con lo cual para hacer debug desde un thread externo, bastaría con declarar la variable como /extern/. 
+FIXME: probar =extern lpm_stats[N]=.
 #+begin_src c
   #if LPM_CONF_STATS
   rtimer_clock_t lpm_stats[3];

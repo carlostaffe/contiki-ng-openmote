@@ -44,9 +44,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 // FIXME: Necesario para incluir la variable global energy
 #include "../project-conf.h"
 #include "lpm.h"
+#endif
 
 energest_t energy;
 extern rtimer_clock_t lpm_stats[0];

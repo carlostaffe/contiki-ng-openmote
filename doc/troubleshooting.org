@@ -2,3 +2,9 @@
 ** Deshabilitar Warnings como Errors
    Por defecto (es una buena práctica), el makefile de contiki indica que todos los warnings deben ser tratados como errores.
    Para deshabilitar (no recomendado) este comportamiento basta con agregar al comando make =WERROR=0=
+* Cooja
+Para correr Cooja es necesario que =echo $JAVA_HOME= devuelva un valor. Además es recomendable usar jre=<9.
+En mi caso, agrego al =.bashrc= lo siguiente:
+#+begin_src bash
+export JAVA_HOME="/usr/lib/jvm/java-8-openjdk/jre/"
+#+end_src
