@@ -47,6 +47,9 @@
 // FIXME: Necesario para incluir la variable global energy
 #include "../project-conf.h"
 
+// FIXME: DEbug para PM1+. 
+#include "lpm.h"
+
 energest_t energy;
 /* Log configuration */
 #include "sys/log.h"
@@ -105,6 +108,7 @@ static void res_periodic_handler() {
     /* Notify the registered observers which will trigger the res_get_handler to
      * create the response. */
     coap_notify_observers(&res_energest_periodic);
+    lpm_enter();
   }
 }
 

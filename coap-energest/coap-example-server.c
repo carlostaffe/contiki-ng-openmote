@@ -51,6 +51,7 @@
 #include "dev/max44009.h"
 #include "dev/sht21.h"
 #include "sys/energest.h"
+#include "lpm.h"
 
 /* Log configuration */
 #include "sys/log.h"
@@ -65,6 +66,8 @@
 #include "dev/sht21.h"
 #include "project-conf.h"
 extern coap_resource_t res_temperature, res_energest_periodic;
+
+
 
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
@@ -111,7 +114,8 @@ PROCESS_THREAD(er_example_server, ev, data)
 
   /* Define application-specific events here. */
   while(1) {
-    PROCESS_WAIT_EVENT();
+    PROCESS_YIELD();
+    //LOG_DBG("**LPM: %lu", LPM_STATS_GET(1));
   }                             /* while (1) */
 
   PROCESS_END();

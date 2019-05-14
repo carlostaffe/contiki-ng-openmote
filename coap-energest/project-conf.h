@@ -39,8 +39,19 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
-#define ENERGEST_CONF_ON 1
 
+//CONFIGURACION ENERGIA
+#define ENERGEST_CONF_ON 1
+#define LPM_CONF_STATS 1
+#define LPM_CONF_MAX_PM  2
+
+// deshabilito perifericos para ahorrar energia
+// #define USB_SERIAL_CONF_ENABLE 0
+// #define UART_CONF_ENABLE 0
+//#define CC2538_CONF_QUIET 1
+
+
+#define LOG_CONF_LEVEL_MAIN  LOG_LEVEL_DBG
 #define LOG_LEVEL_APP LOG_LEVEL_DBG
 
 typedef struct {
