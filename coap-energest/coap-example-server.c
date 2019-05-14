@@ -53,7 +53,12 @@
 #include "adxl346.h"
 #include "dev/max44009.h"
 #include "dev/sht21.h"
+<<<<<<< HEAD
+#include "sys/energest.h"
+#include "lpm.h"
+=======
 #endif
+>>>>>>> 0fff3735a525da362baed676c138121b38290be1
 
 /* Log configuration */
 #include "sys/log.h"
@@ -67,11 +72,16 @@
 
 #include "project-conf.h"
 
+<<<<<<< HEAD
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 extern coap_resource_t res_temperature, res_energest_periodic;
 #else
 extern coap_resource_t res_energest_periodic;
 #endif
+=======
+
+
+>>>>>>> cf746dbfa8185742048002fbf631cdc98cc8c6dd
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
 
@@ -115,9 +125,16 @@ PROCESS_THREAD(er_example_server, ev, data) {
 
 
   /* Define application-specific events here. */
+<<<<<<< HEAD
+  while(1) {
+    PROCESS_YIELD();
+    //LOG_DBG("**LPM: %lu", LPM_STATS_GET(1));
+  }                             /* while (1) */
+=======
   while (1) {
     PROCESS_WAIT_EVENT();
   } /* while (1) */
+>>>>>>> 0fff3735a525da362baed676c138121b38290be1
 
   PROCESS_END();
 }

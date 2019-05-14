@@ -50,6 +50,9 @@
 #include "lpm.h"
 #endif
 
+// FIXME: DEbug para PM1+. 
+#include "lpm.h"
+
 energest_t energy;
 extern rtimer_clock_t lpm_stats;
 /* Log configuration */
@@ -114,6 +117,7 @@ static void res_periodic_handler() {
     /* Notify the registered observers which will trigger the res_get_handler to
      * create the response. */
     coap_notify_observers(&res_energest_periodic);
+    lpm_enter();
   }
 }
 
