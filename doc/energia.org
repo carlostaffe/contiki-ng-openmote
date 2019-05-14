@@ -77,12 +77,17 @@ Notar que mientras en PM0 la radio puede estar encendida, en PM1+ esto no es pos
 
 ** lpm.c - Comentado
 
-En este apartado, intento explicar el funcionamiento del modo de ahorro de energía. Según se ve en el archivo fuente =arch/cpu/cc2538/lpm.c=
+
+En este apartado, intento explicar el funcionamiento del modo de ahorro de energía, así como los posibles mecanismos de bloqueo.
+
+*** Parámetros generales
+Según se ve en el archivo fuente =arch/cpu/cc2538/lpm.c=
 
  En primer lugar se revisa el flag =LPM_CONF_ENABLE=:
 #+begin_src c
 #if LPM_CONF_ENABLE != 0
 #+end_src
+
 Luego se definen intervalos de duración de los modos PM1+, en términos de ticks de rtimer. Según el comentario del código, un tick dura alrededor de 30.5 usec.
 La lógica es que si la duración del período libre de interrupciones es menor a los thresholds a continuación definidos, no entrar en PM+1. Recordar que existe un período de transición entre los modos, por lo cual, no tiene sentido caer a PM1+ si se debe despertar poco tiempo después. 
  #+begin_src c
@@ -97,16 +102,12 @@ La lógica es que si la duración del período libre de interrupciones es menor 
 #define DEEP_SLEEP_PM1_THRESHOLD    10
 #define DEEP_SLEEP_PM2_THRESHOLD    100
  #+end_src
- FIXME: No estoy seguro lo que hace esto. 
- #+begin_src c
- /*---------------------------------------------------------------------------*/
-#define assert_wfi() do { __asm("wfi"::); } while(0)
-/*---------------------------------------------------------------------------*/
- #+end_src
  
- El siguiente bloque declara 3 estructuras rtimer en las cuales se guardan estadísticas que indican cuanto tiempo pasó el cpu en cada modo de ahorro de energía.
- Además define macros para iniciar y actualizar las estructuras. En el comentario, se indica que estas estructuras son útiles para debug, con lo cual para hacer debug desde un thread externo, bastaría con declarar la variable como /extern/. 
-FIXME: probar =extern lpm_stats[N]=.
+El siguiente bloque declara 3 estructuras rtimer en las cuales se guardan estadísticas que indican cuanto tiempo pasó el cpu en cada modo de ahorro de energía. Hasta donde alcanzo a comprender, no veo en qué momento se utilizan estas estadísticas.
+ 
+Además define macros para iniciar y actualizar las estructuras. En el comentario, se indica que estas estructuras son útiles para debug.
+ 
+
 #+begin_src c
   #if LPM_CONF_STATS
   rtimer_clock_t lpm_stats[3];
@@ -124,6 +125,7 @@ FIXME: probar =extern lpm_stats[N]=.
   #define LPM_STATS_ADD(stat, val)
   #endif
 #+end_src
+
  En la siguiente variable se guarda el máximo PM permitido.
 #+begin_src c
 /*---------------------------------------------------------------------------*/
@@ -132,20 +134,63 @@ static uint8_t max_pm;
 /*---------------------------------------------------------------------------*/
 #+end_src
 
-Define un entero, que será utilizado para inicializar punteros a funciones. Las cuales a su vez serán utilizadas para chequear si un periférico permite PM1. Si no se ha definido un valor, defaultea a 5.
+*** Consulta a periféricos
+ Para poder bloquear el paso a PM1+, un módulo debe registrarse. Esto se hace en la función =lpm_register_peripheral=:
 #+begin_src c
-/*---------------------------------------------------------------------------*/
-/* Buffer to store peripheral PM1+ permission FPs */
-#ifdef LPM_CONF_PERIPH_PERMIT_PM1_FUNCS_MAX
-#define LPM_PERIPH_PERMIT_PM1_FUNCS_MAX LPM_CONF_PERIPH_PERMIT_PM1_FUNCS_MAX
-#else
-#define LPM_PERIPH_PERMIT_PM1_FUNCS_MAX 5
-#endif
+void
+lpm_register_peripheral(lpm_periph_permit_pm1_func_t permit_pm1_func)
+{
+  int i;
+
+  for(i = 0; i < LPM_PERIPH_PERMIT_PM1_FUNCS_MAX; i++) {
+    if(periph_permit_pm1_funcs[i] == permit_pm1_func) {
+      break;
+    } else if(periph_permit_pm1_funcs[i] == NULL) {
+      periph_permit_pm1_funcs[i] = permit_pm1_func;
+      break;
+    }
+  }
+}
 #+end_src
 
-Define N variables que son punteros a funciones =periph_permit_pm1_funcs= que regresan bool y toman void como parametro, con N igual a un número que creo que es la cantidad de funciones de atención a periféricos.
-NO estoy seguro.
-Las funciones registradas son llamadas por el módulo LPM para pedir permiso para pasar a PM1+.
+Un ejemplo es el módulo UART, en el cual =/arch/cpu/cc2538/dev/uart.c= se define la siguiente función:
+#+begin_src c
+    static bool
+    permit_pm1(void)
+    {
+      const uart_regs_t *regs;
+
+      for(regs = &uart_regs[0]; regs < &uart_regs[UART_INSTANCE_COUNT]; regs++) {
+        if((REG(regs->base + UART_FR) & UART_FR_BUSY) != 0) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+  void
+  uart_init(uint8_t uart)
+  {
+    // codigo de inicialización
+    lpm_register_peripheral(permit_pm1);
+    // mas código
+  }
+
+#+end_src
+
+ Entonces: un periférico puede registrar una función que será llamada de tal forma que el módulo LPM /pida permiso/ para poder poner al mote en PM1+.
+ Para el CPU =cc2538= estos módulos son:
+ 1) UART
+ 2) USB
+ 3) PWM
+ 4) PKA
+ 5) Crypto
+ 
+4 y 5 son usados para conexiones seguras.
+
+Volviendo al código de =lpm.c= la siguiente función se encarga de iterar por cada módulo y preguntar a su correspondiente función si se puede pasar a PM1+.
+
 #+begin_src c
   static lpm_periph_permit_pm1_func_t
   periph_permit_pm1_funcs[LPM_PERIPH_PERMIT_PM1_FUNCS_MAX];
@@ -170,3 +215,31 @@ Las funciones registradas son llamadas por el módulo LPM para pedir permiso par
   }
 
 #+end_src
+
+*** lpm_enter()
+Finalmente todo lo anterior se utiliza en la función =lpm_enter= la cual determina el modo de ahorro de energía:
+
+#+begin_src c
+void
+lpm_enter()
+{
+  /*
+   * If either the RF or the registered peripherals are on, dropping to PM1/2
+   * would equal pulling the rug (32MHz XOSC) from under their feet. Thus, we
+   * only drop to PM0. PM0 is also used if max_pm==0.
+   */
+  if((REG(RFCORE_XREG_FSMSTAT0) & RFCORE_XREG_FSMSTAT0_FSM_FFCTRL_STATE) != 0
+     || !periph_permit_pm1() || max_pm == 0) {
+    enter_pm0();
+
+    /* We reach here when the interrupt context that woke us up has returned */
+    return;
+  }
+#+end_src
+
+Según se puede ver, el =if= chequea tres condiciones:
+1) =(REG(RFCORE_XREG_FSMSTAT0) & RFCORE_XREG_FSMSTAT0_FSM_FFCTRL_STATE)= :: El módulo de RF permite PM1+.  Más precisamente este control chequea si existen datos en la FIFO de RF.
+2) =!periph_permit_pm1()= :: Todos los perifércios permiten PM1+.
+3) =max_pm= :: El programador permite PM1+.
+
+Si alguna de estas no se cumple, el mote llega hasta PM0.

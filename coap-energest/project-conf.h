@@ -39,10 +39,22 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
+// CONFIGURACION ENERGIA
 #define ENERGEST_CONF_ON 1
+#define LPM_CONF_STATS 1
+#define LPM_CONF_MAX_PM 2
+#define ENERGEST_CONF_ON 1
+// deshabilitar para habilitar PM1+
+// #define USB_SERIAL_CONF_ENABLE 0
+// #define UART_CONF_ENABLE 0
+//#define CC2538_CONF_QUIET 1
 
+// CONFIGURACION LOG LEVEL
 #define LOG_LEVEL_APP LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_COAP LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_MAIN LOG_LEVEL_DBG
 
+#define PLATFORM_HAS_TEMPERATURE 1
 typedef struct {
 	unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
 	         last_deep_lpm;

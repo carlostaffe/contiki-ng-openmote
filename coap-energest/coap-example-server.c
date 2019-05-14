@@ -48,6 +48,7 @@
 #include "dev/leds.h"
 #include "lib/sensors.h"
 #include "sys/energest.h"
+
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 #include "adxl346.h"
 #include "dev/max44009.h"
@@ -65,8 +66,12 @@
  */
 
 #include "project-conf.h"
-extern coap_resource_t res_temperature, res_energest_periodic;
 
+#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+extern coap_resource_t res_temperature, res_energest_periodic;
+#else
+extern coap_resource_t res_energest_periodic;
+#endif
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
 
@@ -96,6 +101,7 @@ PROCESS_THREAD(er_example_server, ev, data) {
     leds_on(LEDS_RED);
   }
 #endif
+
   /* Initialize Energest Module*/
   /* struct energest_t energy = {0}; */
   energest_flush();
@@ -107,8 +113,6 @@ PROCESS_THREAD(er_example_server, ev, data) {
   energy.last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   energy.last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
 
-  if (energy.last_time)
-    LOG_DBG("*******BUTTON*******\n");
 
   /* Define application-specific events here. */
   while (1) {

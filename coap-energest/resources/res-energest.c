@@ -105,14 +105,14 @@ static unsigned long to_permil(unsigned long delta_metric, unsigned long delta_t
       /*          energy.delta_rx, energy.delta_time, */
       /*          to_permil(energy.delta_rx, energy.delta_time), energy.delta_tx + energy.delta_rx, */
       /*          energy.delta_time, to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time)); */
-      snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%lu;%lu;%lu;%lu;%lu;%lu;%lu",
-               energy.delta_time / ENERGEST_SECOND,
-               to_permil(energy.delta_cpu, energy.delta_time),
-               to_permil(energy.delta_lpm, energy.delta_time),
-               to_permil(energy.delta_deep_lpm, energy.delta_time), 
-               to_permil(energy.delta_tx, energy.delta_time),
-               to_permil(energy.delta_rx, energy.delta_time),
-               to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
+      /* snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%llu;%lu;%lu;%lu;%lu;%lu;%lu", */
+      /*          energy.delta_time / ENERGEST_SECOND, */
+      /*          to_permil(energy.delta_cpu, energy.delta_time), */
+      /*          to_permil(energy.delta_lpm, energy.delta_time), */
+      /*          to_permil(energy.delta_deep_lpm, energy.delta_time),  */
+      /*          to_permil(energy.delta_tx, energy.delta_time), */
+      /*          to_permil(energy.delta_rx, energy.delta_time), */
+      /*          to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time)); */
 
 
       coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));

@@ -51,11 +51,11 @@
 #endif
 
 energest_t energy;
-extern rtimer_clock_t lpm_stats[0];
+extern rtimer_clock_t lpm_stats;
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "Energest"
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
                             uint8_t *buffer, uint16_t preferred_size,
@@ -91,11 +91,16 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
   coap_get_header_accept(request, &accept);
 
   coap_set_header_content_format(response, TEXT_PLAIN);
+#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
   snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%lu;%lu;%lu;%lu;%lu;%lu;%lu",
-           energy.delta_time / ENERGEST_SECOND,energy.delta_time, energy.delta_cpu,
-           energy.delta_lpm, energy.delta_deep_lpm, energy.delta_tx,
-           energy.delta_rx);
-  coap_set_header_max_age(response, res_energest_periodic.periodic->period / CLOCK_SECOND);
+           energy.delta_time / ENERGEST_SECOND, energy.delta_time,
+           energy.delta_cpu, energy.delta_lpm, energy.delta_deep_lpm,
+           energy.delta_tx, energy.delta_rx);
+#else
+  snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "Placeholder");
+#endif
+  coap_set_header_max_age(response, res_energest_periodic.periodic->period /
+                                        CLOCK_SECOND);
   coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
 }
 
@@ -162,13 +167,13 @@ static void simple_energest_step(void) {
            energy.delta_tx + energy.delta_rx, energy.delta_time,
            to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
 
-    /*************************************************************************/
-    /*                              DEBUG - LPM                               */
-    /*************************************************************************/
+  /*************************************************************************/
+  /*                              DEBUG - LPM                               */
+  /*************************************************************************/
 
   /* LOG_INFO("LPM2 (lpm_stats) %d\n", LPM_STATS_GET(2)); */
   /* LOG_INFO("LPM1 (lpm_stats) %d\n", LPM_STATS_GET(1)); */
   /* rtimer_clock_t stats = lpm_stats[0]; */
   /* LOG_INFO("LPM0 (lpm_stats) %lu\n", stats); */
-
+  /* LOG_DBG("LPM Stats   : %10lu", lpm_stats); */
 }

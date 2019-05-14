@@ -42,16 +42,20 @@
 
 #if PLATFORM_HAS_TEMPERATURE
 #include "coap-engine.h"
-#include "dev/temperature-sensor.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// agregado por mi
+// necesario para lectura del sensor
 #include "lib/sensors.h"
+
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 #include "dev/sht21.h"
+#else
+#if !CONTIKI_TARGET_COOJA
+#include "dev/temperature-sensor.h"
+#endif
 #endif
 
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
@@ -90,7 +94,12 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
 #else
   // valor de prueba para simular
   /* temperature = 123; */
+
+#if !CONTIKI_TARGET_COOJA
   temperature = temperature_sensor.value(0);
+#else
+  temperature = 123; // placeholder
+#endif
 #endif
 
   unsigned int accept = -1;
@@ -127,8 +136,13 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
 static void res_periodic_handler() {
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
   temperature = sht21.value(SHT21_READ_TEMP);
-  #else
+#else
+
+#if !CONTIKI_TARGET_COOJA
   temperature = temperature_sensor.value(0);
+#else
+  temperature = 123; // placeholder
+#endif
 #endif
   ++interval_counter;
 

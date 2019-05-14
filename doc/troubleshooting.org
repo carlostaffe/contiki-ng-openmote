@@ -8,3 +8,19 @@ En mi caso, agrego al =.bashrc= lo siguiente:
 #+begin_src bash
 export JAVA_HOME="/usr/lib/jvm/java-8-openjdk/jre/"
 #+end_src
+
+
+ De cualquier manera no pude hacer que funcione. Tal vez sea un tema de arquitecturas.
+** Utilizar docker
+Seguir las instrucciones en la Wiki de contiki-ng: [https://github.com/contiki-ng/contiki-ng/wiki/Docker]
+
+Si al intentar correr cooja, falla con el error:
+#+begin_example
+Can't connect to X11 window server using ':0' as the value of the DISPLAY variable.
+#+end_example
+Es necesario permitir conexiones de docker hacia el servidor X con el siguiente comando (correrlo en la misma terminal _antes_ de ejecutar docker o contiker):
+#+begin_src bash
+xhost +"local:docker@"       
+#+end_src
+* Log Level
+https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-Logging
