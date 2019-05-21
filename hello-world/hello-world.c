@@ -48,14 +48,23 @@
 #include "dev/sht21.h"
 #include "lib/sensors.h"
 
+#include "project-conf.h"
+#include "sys/rtimer.h"
 
-#include <stdio.h> /* For printf() */
 /*---------------------------------------------------------------------------*/
 PROCESS(hello_world_process, "Hello world process");
 AUTOSTART_PROCESSES(&hello_world_process);
 /*---------------------------------------------------------------------------*/
+static struct rtimer timer_rtimer;
+
 static int16_t accel, light, temperature, humidity;
 static uint16_t adxl346_present, sht21_present, max44009_present;
+
+void rtimer_callback(struct rtimer *timer, void *ptr) {
+  /* Re-arm rtimer */
+  rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+             rtimer_callback, NULL);
+}
 
 /* funcion que inicializa los sensores si estan disponibles */
 static int sensors_init() {
@@ -63,8 +72,6 @@ static int sensors_init() {
   /* Initialize and calibrate the ADXL346 sensor */
   adxl346_present = SENSORS_ACTIVATE(adxl346);
   if (adxl346_present == ADXL346_ERROR) {
-    printf("ADXL346 sensor is NOT present!\n");
-    leds_on(LEDS_YELLOW);
   } else {
     adxl346.configure(ADXL346_CALIB_OFFSET, 0);
   }
@@ -72,15 +79,11 @@ static int sensors_init() {
   /* Initialize the MAX44009 sensor */
   max44009_present = SENSORS_ACTIVATE(max44009);
   if (max44009_present == MAX44009_ERROR) {
-    printf("MAX44009 sensor is NOT present!\n");
-    leds_on(LEDS_ORANGE);
   }
 
   /* Initialize the SHT21 sensor */
   sht21_present = SENSORS_ACTIVATE(sht21);
   if (sht21_present == SHT21_ERROR) {
-    printf("SHT21 sensor is NOT present!\n");
-    leds_on(LEDS_RED);
   }
   return 0;
 }
@@ -88,52 +91,49 @@ static int sensors_init() {
 /* funcion que lee los sensores e imprime el valor */
 static int sensors_read() {
   if (adxl346_present != ADXL346_ERROR) {
-    leds_on(LEDS_YELLOW);
     accel = adxl346.value(ADXL346_READ_X_mG);
-    printf("X Acceleration: %d.%u G\n", accel / 1000, accel % 1000);
     accel = adxl346.value(ADXL346_READ_Y_mG);
-    printf("Y Acceleration: %d.%u G\n", accel / 1000, accel % 1000);
     accel = adxl346.value(ADXL346_READ_Z_mG);
-    printf("Z Acceleration: %d.%u G\n", accel / 1000, accel % 1000);
-    leds_off(LEDS_YELLOW);
   }
 
   if (max44009_present != MAX44009_ERROR) {
-    leds_on(LEDS_ORANGE);
     light = max44009.value(MAX44009_READ_LIGHT);
-    printf("Light: %u.%ulux\n", light / 100, light % 100);
-    leds_off(LEDS_ORANGE);
   }
 
   if (sht21_present != SHT21_ERROR) {
-    leds_on(LEDS_RED);
     temperature = sht21.value(SHT21_READ_TEMP);
-    printf("Temperature: %u.%uC\n", temperature / 100, temperature % 100);
     humidity = sht21.value(SHT21_READ_RHUM);
-    printf("Rel. humidity: %u.%u%%\n", humidity / 100, humidity % 100);
-    leds_off(LEDS_RED);
   }
   return 0;
 }
 
-PROCESS_THREAD(hello_world_process, ev, data)
-{
-  static struct etimer timer;
+static struct etimer timer;
+/* funcion que inicializa los sensores si estan disponibles */
+PROCESS_THREAD(hello_world_process, ev, data) {
+  leds_off(LEDS_ALL);
+  sensors_init();
 
   PROCESS_BEGIN();
 
   /* Setup a periodic timer that expires after 10 seconds. */
-  etimer_set(&timer, CLOCK_SECOND * 5);
+  etimer_set(&timer, CLOCK_SECOND * 1);
+  rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+             rtimer_callback, NULL);
 
-  /* inicializacion de sensores */
-  sensors_init();
+  while (1) {
 
-  while(1) {
-
-    sensors_read();
     /* Wait for the periodic timer to expire and then restart the timer. */
+    if (etimer_expired(&timer)) {
+
+      for (int j = 0; j < 1500; j++) {
+        sensors_read();
+        leds_on(LEDS_YELLOW);
+      }
+      leds_off(LEDS_YELLOW);
+      etimer_reset(&timer);
+    }
+
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-    etimer_reset(&timer);
   }
 
   PROCESS_END();
