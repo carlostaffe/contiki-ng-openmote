@@ -1,0 +1,244 @@
+* Intro
+=renode= es un framework de emulación de HW. Es /software-agnostic/ en tanto no implementa un sistema operativo u stack de un fabricante. =contiki-ng= se encuentra soportado tanto por los desarrolladores de =renode= como por los desarrolladores de =contiki-ng=.
+
+ Comparativamente con =cooja= tiene la desventaja de no contar con una interfaz gráfica, la interacción se realiza por línea de comandos. La principal ventaja es que, a diferencia de cooja, soporta el cpu =cc2538= y disponibiliza nuevas formas de interactuar con el HW emulado.
+
+* Primer ejemplo
+
+Esta guía no pretende ser un manual exhaustivo. Más bien es un ayuda memoria.
+
+
+** Configurar la simulación
+
+*** Crear la máquina
+#+begin_src 
+mach create "cliente"
+#+end_src
+
+#+begin_src 
+(cliente) peripherals 
+Available peripherals:
+  sysbus (SystemBus)
+  │   
+#+end_src
+Tal como se puede ver, al crear una máquina vacía la misma no tiene ningún periférico configurado.
+
+#+begin_src 
+(cliente) machine LoadPlatformDescription @platforms/cpus/cc2538.repl
+#+end_src
+
+
+#+begin_src 
+(cliente) peripherals 
+Available peripherals:
+  sysbus (SystemBus)
+  │   
+  ├── bitband (BitBanding)
+  │     <0x22000000, 0x221FFFFF>
+  │       
+  ├── cpu (CortexM)
+  │     Slot: 0
+  │       
+  ├── crypto (CC2538_Cryptoprocessor)
+  │     <0x4008B000, 0x4008B7FF>
+  │       
+  ├── flash (MappedMemory)
+  │     <0x00200000, 0x002FFFFF>
+  │       
+  ├── flashCtrl (CC2538FlashController)
+  │     <0x400D3000, 0x400D3FFF>
+  │       
+  ├── nvic (NVIC)
+  │     <0xE000E000, 0xE000EFFF>
+  │       
+  ├── radio (CC2538RF)
+  │     <0x40088000, 0x40088FFF>
+  │       
+  ├── ram (MappedMemory)
+  │     <0x20000000, 0x2003FFFF>
+  │       
+  ├── rom (MappedMemory)
+  │     <0x00000000, 0x0001FFFF>
+  │       
+  ├── sleepTimer (CC2538SleepTimer)
+  │     <0x400D5040, 0x400D506F>
+  │       
+  ├── uart0 (PL011)
+  │     <0x4000C000, 0x4000CFFF>
+  │       
+  ├── uart1 (PL011)
+  │     <0x4000D000, 0x4000DFFF>
+  │       
+  ├── uDma (UDMA)
+  │     <0x400FF000, 0x400FFFFF>
+  │       
+  └── watchdog (CC2538Watchdog)
+        <0x400D5000, 0x400D5003>
+#+end_src
+
+Cuando se carga la definición de la arquitectura[fn:1] se puede ver que se habilita algunos periféricos del SoC.
+
+*** Cargar un programa
+Se puede cargar un binario, tal como si se estuviese flasheando la ROM del micro. Para ello utilizar el comando =sysbus LoadBinary= o =sysbus LoadElf=.
+#+begin_src 
+(cliente) sysbus LoadELF @/home/default/Workspace/contiki-ng/apps/hello-world/build/openmote-cc2538/hell o-world.elf 
+#+end_src(cliente) sysbus LoadELF @/home/default/Workspace/contiki-ng/apps/hello-world/build/openmote-cc2538/hell
+
+Para eliminar el programa cargado de la máquina virtual, simplemente utilizar el comando:
+#+begin_src 
+(cliente) clear
+#+end_src
+
+*** Control de ejecución
+Luego de cargar un programa, se puede emular con:
+#+begin_src 
+(cliente) start
+Starting emulation...
+#+end_src
+y pausar con
+#+begin_src 
+(cliente) pause 
+Pausing emulation...
+#+end_src
+*** Trabajar con periféricos
+Para listar las operaciones soportadas por un periférico, basta con escribir =sysbus.<periférico>=.
+#+begin_src 
+(cliente) sysbus.radio 
+The following methods are available:
+ - Void DebugLog (String message)
+ - IEnumerable<Tuple<String,IGPIO>> GetGPIOs ()
+ - Machine GetMachine ()
+ - Boolean HasGPIO ()
+ - Void Log (LogLevel type, String message)
+ - Void LogUnhandledRead (Int64 offset)
+ - Void LogUnhandledWrite (Int64 offset, Int64 value)
+ - Void NoisyLog (String message)
+ - Byte ReadByte (Int64 offset)
+ - Byte ReadByteNotTranslated (Int64 address)
+ - Byte ReadByteUsingDword (Int64 address)
+ - Byte ReadByteUsingDwordBigEndian (Int64 address)
+ - UInt32 ReadDoubleWord (Int64 offset)
+ - UInt32 ReadDoubleWordNotTranslated (Int64 address)
+ - UInt32 ReadDoubleWordUsingByte (Int64 address)
+ - UInt32 ReadDoubleWordUsingByteBigEndian (Int64 address)
+ - UInt16 ReadWordNotTranslated (Int64 address)
+ - UInt16 ReadWordUsingByte (Int64 address)
+ - UInt16 ReadWordUsingByteBigEndian (Int64 address)
+ - UInt16 ReadWordUsingDword (Int64 address)
+ - UInt16 ReadWordUsingDwordBigEndian (Int64 address)
+ - Void ReceiveFrame (Byte[] bytes)
+ - Void Reset ()
+ - Void WriteByte (Int64 offset, Byte value)
+ - Void WriteByteNotTranslated (Int64 address, Byte value)
+ - Void WriteByteUsingDword (Int64 address, Byte value)
+ - Void WriteByteUsingDwordBigEndian (Int64 address, Byte value)
+ - Void WriteDoubleWord (Int64 offset, UInt32 value)
+ - Void WriteDoubleWordNotTranslated (Int64 address, UInt32 value)
+ - Void WriteDoubleWordUsingByte (Int64 address, UInt32 value)
+ - Void WriteDoubleWordUsingByteBigEndian (Int64 address, UInt32 value)
+ - Void WriteWordNotTranslated (Int64 address, UInt16 value)
+ - Void WriteWordUsingByte (Int64 address, UInt16 value)
+ - Void WriteWordUsingByteBigEndian (Int64 address, UInt16 value)
+ - Void WriteWordUsingDword (Int64 address, UInt16 value)
+ - Void WriteWordUsingDwordBigEndian (Int64 address, UInt16 value)
+Usage:
+ sysbus.radio MethodName param1 param2 ...
+The following properties are available:
+ - Int32 Channel
+     available for 'get' and 'set'
+ - GPIO IRQ
+     available for 'get'
+ - Int64 Size
+     available for 'get'
+Usage: 
+ - get: sysbus.radio PropertyName
+ - set: sysbus.radio PropertyName Value
+#+end_src
+En la sección =usage= se puede observar cómo leer una atributo y cómo setearlo.
+*** Integración en contiki-ng
+No se recomienda ingresar a renode y luego manualmente crear la máquina con la arquitectura y cargar el binario. Aparentemente para una emulación exitosa es necesario en primer lugar ingresar algunos parámetros cuya función no está del todo documentada.
+
+Lo recomendable es copiar el archivo =examples/rpl-udp/cc2538-node.resc= al directorio donde se encuentren las fuentes del proyecto. En este archivo se encuentran los parámetros de configuración propios del MCU. 
+
+Luego se debe definir el escenario de la simulación. Esto se puede hacer en un archivo separado, tan sencillo como el siguiente:
+#+begin_src 
+# agregamos el directorio actual para poder encontrar aquí los binarios
+path add $CWD
+emulation CreateWirelessMedium "wireless"
+$domain = `emulation AddSyncDomain`
+wireless SetSyncDomainFromEmulation $domain
+
+# The radio is using a range-based medium (with the `Range` set to `11`)
+# If not set, the default SimpleMediumFunction will be used (where range is not relevant)
+wireless SetRangeWirelessFunction 11
+
+######################### HELLO WORLD - begin #########################
+
+# en esta linea colocar el nombre del binario. Se encuentra
+# bajo la carpeta build build/openmote-cc2538/
+$bin=@hello-world.openmote-cc2538
+$name="hello"
+i $ORIGIN/cc2538-node.resc
+
+# en esta linea se definen las coordenadas x y z
+wireless SetPosition radio 0 0 0
+machine SyncUnit 100
+
+# abrir una consola dedicada a la salida de uart0
+showAnalyzer sysbus.uart0
+mach clear
+########################## UDP SERVER - end ##########################
+#+end_src
+
+=IMPORTANTE:= Estos archivos funcionan solamente con la versión 1.3 de =renode=.
+
+
+También es posible indicarle a =make= que compile el programa y lo cargue automáticamente en =renode=. Para esto se debe agregar lo siguiente al makefile:
+#+begin_src makefile
+	ifeq ($(HOST_OS),Darwin)
+  RENODE = mono /Applications/Renode.app/Contents/MacOS/bin/Renode.exe
+else
+  RENODE = renode
+endif
+
+SCRIPT ?= $(notdir $(CURDIR)).resc
+
+.PHONY: renode
+
+renode: all
+	$(RENODE) $(SCRIPT)
+#+end_src
+
+Con esto el comando para compilar y cargar el binario a la simulación es:
+#+begin_src bash
+make renode TARGET=openmote-cc2538 SCRIPT=hello.resc 
+#+end_src
+*** Integración con GDB
+Se puede iniciar en =renode= un servidor GDB y conectarse de manera /remota/ con un cliente gdb. 
+Esto permite hacer debug con el programa corriendo.
+Información complementaria sobre las capacidades de GBD se detalla en una entrada separada.
+
+En =renode=, cambiar a la máquina (=mach set <nombre | numero>=) y ejecutar
+#+begin_src 
+sysbus.cpu StartGdbServer 3333
+#+end_src
+Donde 3333 es el puerto al que se debe conectar el cliente.
+
+En el host (PC) ejecutar el =arm-none-eabi-gdb /path/to/application.bin =[fn:2] y en la consola escribir:
+#+begin_src 
+(gdb) target remote localhost:3333
+#+end_src
+
+Luego se pueden definir breakpoints, watch vars, etc y finalmente iniciar la emulación con:
+
+#+begin_src 
+(gdb) monitor start
+(gdb) continue
+#+end_src
+* Footnotes
+
+[fn:2] Versiones recientes de gdb tienen problemas en la conexión, yo lo probé con la =GNU gdb (Linaro GDB) 7.8-2014.09=
+
+[fn:1]  Aclaración: el símbolo =@= determina un path (por defecto relativo al directorio de instalación de =renode=) 
+En mi máquina es /opt/renode=. 
+
