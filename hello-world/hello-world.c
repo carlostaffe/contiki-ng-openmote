@@ -48,6 +48,8 @@
 #include "dev/sht21.h"
 #include "lib/sensors.h"
 
+#include "net/netstack.h"
+#include "net/routing/routing.h"
 #include "project-conf.h"
 #include "sys/rtimer.h"
 
@@ -117,8 +119,6 @@ PROCESS_THREAD(hello_world_process, ev, data) {
 
   /* Setup a periodic timer that expires after 10 seconds. */
   etimer_set(&timer, CLOCK_SECOND * 1);
-  rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
-             rtimer_callback, NULL);
 
   while (1) {
 
@@ -133,8 +133,12 @@ PROCESS_THREAD(hello_world_process, ev, data) {
       etimer_reset(&timer);
     }
 
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-  }
+    if (NETSTACK_ROUTING.node_is_reachable()) {
+      rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+                 rtimer_callback, NULL);
+    }
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    }
 
   PROCESS_END();
 }
