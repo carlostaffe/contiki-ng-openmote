@@ -68,3 +68,4 @@ tests/18-coap-lwm2m/leshan-server-demo*.jar
 cpu/x86/uefi/Makefile.uefi
 cpu/x86/uefi/edk2
 
+/hello-world/.gdbinit

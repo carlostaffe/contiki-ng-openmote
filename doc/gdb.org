@@ -1,0 +1,59 @@
+* Use the source Luke
+Para obtener contexto y saber en qué punto del programa nos encontramos, tipear:
+#+begin_src 
+(gdb) list
+#+end_src
+
+Existen dos funciones para avanzar el PC: =next= y =step=. =next= omite las funciones, =step= entra dentro de ellas.
+
+Para examinar el valor de una variable, utilizar:
+#+begin_src 
+(gdb) print is_networked 
+$1 = false
+#+end_src
+
+Para cambiar el valor de una variable:
+#+begin_src 
+(gdb) set x = 3
+(gdb) print x
+$4 = 3
+#+end_src
+
+Las variables locales no pueden ser examinadas con =print= antes de ser declaradas.
+ Un comando útil para ver las variables locales rápidamente es:
+#+begin_src 
+(gdb) info locals
+lpm_exit_time = 0
+duration = 4294939535
+#+end_src
+* Breakpoints
+Se puede colocar un breakpoint en una función (será llamado cada vez que el PC llegue a la función) con:
+#+begin_src 
+(gdb) b <funcion_name>
+(gdb) break <line-number>
+(gdb) break filename:function
+(gdb) break filename:line-number
+#+end_src
+
+
+ Alternativamente con el comando =tbreak= se configura un /breakpoint temporal/ que sólo detiene la ejecución una única vez.
+ 
+Para listar los /breakpoints/ basta con utilizar
+#+begin_src 
+(gdb) info breakpoints
+...
+
+1       breakpoint     keep y   <MULTIPLE> 
+        breakpoint already hit 9 times
+1.1                         y     0x0020ae98 in check_connection at hello-world.c:145
+1.2                         y     0x0020aeaa in check_connection at hello-world.c:146
+2       breakpoint     keep y   0x00203b34 in lpm_enter at ../../arch/cpu/cc2538/./lpm.c:251
+
+#+end_src
+
+
+ Eliminar un /breakpoint/ es tan sencillo como:
+#+begin_src 
+(gdb) disable 1
+#+end_src
+Donde 1 es el primer breakpoint según el comando =info breakpoints=

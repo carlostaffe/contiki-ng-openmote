@@ -1,9 +1,13 @@
+* Referencias
++ Tutorial :: https://renode.io/news/how-to-run-multinode-zephyr-setups-in-renode/
++ Documentación :: https://renode.readthedocs.io/en/latest/debugging/gdb.html
++ Contiki-ng Wiki :: https://renode.readthedocs.io/en/latest/debugging/gdb.html
 * Intro
 =renode= es un framework de emulación de HW. Es /software-agnostic/ en tanto no implementa un sistema operativo u stack de un fabricante. =contiki-ng= se encuentra soportado tanto por los desarrolladores de =renode= como por los desarrolladores de =contiki-ng=.
 
  Comparativamente con =cooja= tiene la desventaja de no contar con una interfaz gráfica, la interacción se realiza por línea de comandos. La principal ventaja es que, a diferencia de cooja, soporta el cpu =cc2538= y disponibiliza nuevas formas de interactuar con el HW emulado.
 
-* Primer ejemplo
+* Uso
 
 Esta guía no pretende ser un manual exhaustivo. Más bien es un ayuda memoria.
 
@@ -205,9 +209,12 @@ SCRIPT ?= $(notdir $(CURDIR)).resc
 
 .PHONY: renode
 
+# habilitar símbolos de depuración
+CFLAGS += -g
 renode: all
 	$(RENODE) $(SCRIPT)
 #+end_src
+Es crítico agregar el =CFLAG= =-g= puesto que esto habilita la compilación con símbolos de depuración (para integrar =gdb=)
 
 Con esto el comando para compilar y cargar el binario a la simulación es:
 #+begin_src bash
