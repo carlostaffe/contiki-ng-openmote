@@ -1,2 +1,0 @@
-* Cliente CoAP
-** TODO Antes de suscribirse a un recurso, verificar que sea accesible y observable

@@ -50,11 +50,7 @@
 #include "lpm.h"
 #endif
 
-// FIXME: DEbug para PM1+. 
-#include "lpm.h"
-
 energest_t energy;
-extern rtimer_clock_t lpm_stats;
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "Energest"
@@ -117,7 +113,6 @@ static void res_periodic_handler() {
     /* Notify the registered observers which will trigger the res_get_handler to
      * create the response. */
     coap_notify_observers(&res_energest_periodic);
-    lpm_enter();
   }
 }
 
@@ -129,7 +124,6 @@ static unsigned long to_permil(unsigned long delta_metric,
 /*---------------------------------------------------------------------------*/
 static void simple_energest_step(void) {
   static unsigned count = 0;
-  /* extern struct energest_t energy; */
   energest_flush();
 
   energy.curr_time = ENERGEST_GET_TOTAL_TIME();
@@ -170,14 +164,4 @@ static void simple_energest_step(void) {
   LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n",
            energy.delta_tx + energy.delta_rx, energy.delta_time,
            to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
-
-  /*************************************************************************/
-  /*                              DEBUG - LPM                               */
-  /*************************************************************************/
-
-  /* LOG_INFO("LPM2 (lpm_stats) %d\n", LPM_STATS_GET(2)); */
-  /* LOG_INFO("LPM1 (lpm_stats) %d\n", LPM_STATS_GET(1)); */
-  /* rtimer_clock_t stats = lpm_stats[0]; */
-  /* LOG_INFO("LPM0 (lpm_stats) %lu\n", stats); */
-  /* LOG_DBG("LPM Stats   : %10lu", lpm_stats); */
 }

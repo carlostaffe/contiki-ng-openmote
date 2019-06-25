@@ -43,67 +43,68 @@
 #include <stdlib.h>
 #include <string.h>
 
-// agregado por mi
+/*****************************************************************************/
+/*                     Librerias para openmote o energest                    */
+/*****************************************************************************/
 #include "dev/button-sensor.h"
 #include "dev/leds.h"
 #include "lib/sensors.h"
 #include "sys/energest.h"
+#include "sys/rtimer.h"
 
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 #include "adxl346.h"
 #include "dev/max44009.h"
 #include "dev/sht21.h"
-<<<<<<< HEAD
-#include "sys/energest.h"
-#include "lpm.h"
-=======
 #endif
->>>>>>> 0fff3735a525da362baed676c138121b38290be1
+
+/* #include "net/netstack.h" */
+#include "net/routing/routing.h"
+#include "project-conf.h"
 
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_APP
+
 /*
  * Resources to be activated need to be imported through the extern keyword.
  * The build system automatically compiles the resources in the corresponding
  * sub-directory.
  */
 
-#include "project-conf.h"
-
-<<<<<<< HEAD
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 extern coap_resource_t res_temperature, res_energest_periodic;
 #else
 extern coap_resource_t res_energest_periodic;
 #endif
-=======
 
-
->>>>>>> cf746dbfa8185742048002fbf631cdc98cc8c6dd
+/*---------------------------------------------------------------------------*/
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
+/*---------------------------------------------------------------------------*/
 
+static struct rtimer timer_rtimer;
+
+void rtimer_callback(struct rtimer *timer, void *ptr) {
+  /* Re-arm rtimer */
+  rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+             rtimer_callback, NULL);
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(er_example_server, ev, data) {
   PROCESS_BEGIN();
 
   PROCESS_PAUSE();
 
-  LOG_INFO("Starting Erbium Example Server\n");
+  LOG_INFO("Inicio del pt-coap-server\n");
 
-  /*
-   * Bind the resources to their Uri-Path.
-   * WARNING: Activating twice only means alternate path, not two instances!
-   * All static variables are the same for each URI path.
-   */
-  // prueba para energia
-
+  /* bind recurso a uri-path */
   coap_activate_resource(&res_energest_periodic, "test/energest");
 
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
   coap_activate_resource(&res_temperature, "sensors/temperature");
-  // SENSORS_ACTIVATE(temperature_sensor);
+
   /* Initialize the SHT21 sensor */
   uint16_t sht21_present = SENSORS_ACTIVATE(sht21);
   if (sht21_present == SHT21_ERROR) {
@@ -123,18 +124,16 @@ PROCESS_THREAD(er_example_server, ev, data) {
   energy.last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   energy.last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
 
-
   /* Define application-specific events here. */
-<<<<<<< HEAD
-  while(1) {
-    PROCESS_YIELD();
-    //LOG_DBG("**LPM: %lu", LPM_STATS_GET(1));
-  }                             /* while (1) */
-=======
   while (1) {
     PROCESS_WAIT_EVENT();
+
+    /* inicio un rtimer para que el nodo pueda despertar luego de PM1+ */
+    if (NETSTACK_ROUTING.node_is_reachable()) {
+      rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+                 rtimer_callback, NULL);
+    }
   } /* while (1) */
->>>>>>> 0fff3735a525da362baed676c138121b38290be1
 
   PROCESS_END();
 }

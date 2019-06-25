@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = coap-example-server
+CONTIKI_PROJECT = coap-energest
 all: $(CONTIKI_PROJECT)
 
 print-%  : ; @echo $* = $($*)
@@ -13,3 +13,10 @@ MODULES_REL += ./resources
 
 CONTIKI=../..
 include $(CONTIKI)/Makefile.include
+
+.PHONY: renode
+# habilitar símbolos de depuración
+CFLAGS += -ggdb
+
+renode: all
+	$(RENODE) $(SCRIPT)

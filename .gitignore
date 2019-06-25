@@ -69,3 +69,4 @@ cpu/x86/uefi/Makefile.uefi
 cpu/x86/uefi/edk2
 
 /hello-world/.gdbinit
+/coap-energest/.gdbinit

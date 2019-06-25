@@ -195,6 +195,8 @@ mach clear
 #+end_src
 
 =IMPORTANTE:= Estos archivos funcionan solamente con la versión 1.3 de =renode=.
+Es relativamente sencillo que funcionen con versiones posteriores, se recomienda ver el archivo =cc2538.resc= del repositorio de renode: 
+=https://github.com/renode/renode/blob/master/scripts/single-node/cc2538.resc=
 
 
 También es posible indicarle a =make= que compile el programa y lo cargue automáticamente en =renode=. Para esto se debe agregar lo siguiente al makefile:
@@ -220,6 +222,15 @@ Con esto el comando para compilar y cargar el binario a la simulación es:
 #+begin_src bash
 make renode TARGET=openmote-cc2538 SCRIPT=hello.resc 
 #+end_src
+*** Analizar el tráfico de red
+Es posible lanzar una sesión de Wireshark que analice el tráfico wireless con :
+#+begin_src 
+emulation LogWirelessTraffic
+#+end_src
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2019-06-23 19:43:08
+[[file:images/renode/screenshot_2019-06-23_19-43-08.png]]
+
 *** Integración con GDB
 Se puede iniciar en =renode= un servidor GDB y conectarse de manera /remota/ con un cliente gdb. 
 Esto permite hacer debug con el programa corriendo.
