@@ -40,120 +40,90 @@
 
 #include "contiki.h"
 
-#if PLATFORM_HAS_TEMPERATURE
-#include "coap-engine.h"
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-// necesario para lectura del sensor
+#include <limits.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "coap-engine.h"
+
+// agregado por mi
+#include "dev/sht21.h"
 #include "lib/sensors.h"
 
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
-#include "dev/sht21.h"
-#else
-#if !CONTIKI_TARGET_COOJA
-#include "dev/temperature-sensor.h"
-#endif
-#endif
-
-static void res_get_handler(coap_message_t *request, coap_message_t *response,
-                            uint8_t *buffer, uint16_t preferred_size,
-                            int32_t *offset);
+static void res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 static void res_periodic_handler(void);
 
-#define MAX_AGE 60
+#define MAX_AGE      60
 #define INTERVAL_MIN 5
 #define INTERVAL_MAX (MAX_AGE - 1)
-#define CHANGE 1
+#define CHANGE       1 
 
 static int32_t interval_counter = INTERVAL_MIN;
 static int32_t temperature_old = INT_MIN;
 static int temperature = 0;
 
 PERIODIC_RESOURCE(res_temperature,
-                  "title=\"Temperature\";rt=\"Temperature\";obs",
-                  res_get_handler, NULL, NULL, NULL, 10000,
-                  res_periodic_handler);
+         "title=\"Temperature\";rt=\"Temperature\";obs",
+         res_get_handler,
+         NULL,
+         NULL,
+         NULL,
+         10000,
+         res_periodic_handler);
 
-static void res_get_handler(coap_message_t *request, coap_message_t *response,
-                            uint8_t *buffer, uint16_t preferred_size,
-                            int32_t *offset) {
+static void
+res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
   /*
-   * For minimal complexity, request query and options should be ignored for GET
-   * on observable resources. Otherwise the requests must be stored with the
-   * observer list and passed by coap_notify_observers(). This would be a TODO
-   * in the corresponding files in contiki/apps/erbium/!
+   * For minimal complexity, request query and options should be ignored for GET on observable resources.
+   * Otherwise the requests must be stored with the observer list and passed by coap_notify_observers().
+   * This would be a TODO in the corresponding files in contiki/apps/erbium/!
    */
 
-  // int temperature = temperature_sensor.value(0);
-
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+  //int temperature = temperature_sensor.value(0);
   temperature = sht21.value(SHT21_READ_TEMP);
-#else
-  // valor de prueba para simular
-  /* temperature = 123; */
 
-#if !CONTIKI_TARGET_COOJA
-  temperature = temperature_sensor.value(0);
-#else
-  temperature = 123; // placeholder
-#endif
-#endif
 
   unsigned int accept = -1;
   coap_get_header_accept(request, &accept);
 
-  if (accept == -1 || accept == TEXT_PLAIN) {
+  if(accept == -1 || accept == TEXT_PLAIN) {
     coap_set_header_content_format(response, TEXT_PLAIN);
     snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%d", temperature);
     coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
-  } else if (accept == APPLICATION_JSON) {
+  } else if(accept == APPLICATION_JSON) {
     coap_set_header_content_format(response, APPLICATION_JSON);
-    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "{'temperature':%d}",
-             temperature);
+    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "{'temperature':%d}", temperature);
 
     coap_set_payload(response, buffer, strlen((char *)buffer));
   } else {
     coap_set_status_code(response, NOT_ACCEPTABLE_4_06);
-    const char *msg =
-        "Supporting content-types text/plain and application/json";
+    const char *msg = "Supporting content-types text/plain and application/json";
     coap_set_payload(response, msg, strlen(msg));
   }
 
   coap_set_header_max_age(response, MAX_AGE);
 
-  /* The coap_subscription_handler() will be called for observable resources by
-   * the coap_framework. */
+  /* The coap_subscription_handler() will be called for observable resources by the coap_framework. */
 }
 
 /*
- * Additionally, a handler function named [resource name]_handler must be
- * implemented for each PERIODIC_RESOURCE. It will be called by the coap_manager
- * process with the defined period.
+ * Additionally, a handler function named [resource name]_handler must be implemented for each PERIODIC_RESOURCE.
+ * It will be called by the coap_manager process with the defined period.
  */
-static void res_periodic_handler() {
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+static void
+res_periodic_handler()
+{
+  //int temperature = temperature_sensor.value(0);
   temperature = sht21.value(SHT21_READ_TEMP);
-#else
-
-#if !CONTIKI_TARGET_COOJA
-  temperature = temperature_sensor.value(0);
-#else
-  temperature = 123; // placeholder
-#endif
-#endif
   ++interval_counter;
 
-  if ((abs(temperature - temperature_old) >= CHANGE &&
-       interval_counter >= INTERVAL_MIN) ||
-      interval_counter >= INTERVAL_MAX) {
-    interval_counter = 0;
-    temperature_old = temperature;
-    /* Notify the registered observers which will trigger the res_get_handler to
-     * create the response. */
+  if((abs(temperature - temperature_old) >= CHANGE && interval_counter >= INTERVAL_MIN) || 
+     interval_counter >= INTERVAL_MAX) {
+     interval_counter = 0;
+     temperature_old = temperature;
+    /* Notify the registered observers which will trigger the res_get_handler to create the response. */
     coap_notify_observers(&res_temperature);
   }
 }
-#endif /* PLATFORM_HAS_TEMPERATURE */

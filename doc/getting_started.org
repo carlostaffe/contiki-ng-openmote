@@ -1,6 +1,91 @@
-* Border Router
-** tunslip
-   Lanzarlo desde una aplicación con RPL-BR
-   #+begin_src bash
+* Border Router <<tunslip>>
+Se debe compilar un programa con función de border router (ej: =examples/rpl-border-router=)
+
+1) Verificar que en el Makefile la variable =PREFIX= tenga valor para usar una IPv6 determinada:
+  #+begin_src makefile
+    PREFIX = 2801:1e:4007:c0da::1/64
+  #+end_src
+2) Tostar el mote con dicho programa
+  #+begin_src bash
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 border-router.upload
+   #+end_src
+3) Crear el tuner entre la PC (o raspberry) y el mote:
+  #+begin_src bash
      make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
    #+end_src
+4) Si todo sale bien verificar una salida como:
+   #+begin_src bash
+sudo ../../tools/serial-io/tunslip6 2801:1e:4007:c0da::1/64
+SLIP started on ``/dev/ttyUSB0''
+opened tun device ``/dev/tun0''
+ifconfig tun0 inet `hostname` mtu 1500 up
+ifconfig tun0 add 2801:1e:4007:c0da::1/64
+ifconfig tun0 add fe80::1c:4007:c0da:1/64
+ifconfig tun0
+
+tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
+        inet 127.0.1.1  netmask 255.255.255.255  destination 127.0.1.1
+        inet6 fe80::5a06:7d11:dde6:eb06  prefixlen 64  scopeid 0x20<link>
+        inet6 fe80::1c:4007:c0da:1  prefixlen 64  scopeid 0x20<link>
+        inet6 2801:1e:4007:c0da::1  prefixlen 64  scopeid 0x0<global>
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 0  bytes 0 (0.0 B)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+[INFO: BR        ] Waiting for prefix
+ Address:2801:1e:4007:c0da::1 => 2801:001e:4007:c0da
+[INFO: BR        ] Waiting for prefix
+[INFO: BR        ] Server IPv6 addresses:
+[INFO: BR        ]   2801:1e:4007:c0da:212:4b00:613:f6d
+[INFO: BR        ]   fe80::212:4b00:613:f6d
+  #+end_src
+  La dirección pública IPv6 es la línea inferior a =Server IPv6 addresses:=. Tomar nota de ella.
+5) Para verificar los nodos conectados al DAG se puede hacer:
+  #+begin_src bash
+      wget -6 "http://[2801:1e:4007:c0da:212:4b00:613:f6d]/"; cat index.html; rm index.html
+   #+end_src
+   Una posible salida es:
+  #+begin_src bash
+--2019-06-25 20:30:42--  http://[2801:1e:4007:c0da:212:4b00:613:f6d]/
+Conectando con [2801:1e:4007:c0da:212:4b00:613:f6d]:80... conectado.
+Petición HTTP enviada, esperando respuesta... 200 OK
+Longitud: no especificado [text/html]
+Grabando a: “index.html”
+
+index.html                                    [  <=>                                                                                ]     549  1,45KB/s    in 0,4s
+
+2019-06-25 20:30:42 (1,45 KB/s) - “index.html” guardado [549]
+
+<html>
+  <head>
+    <title>Contiki-NG</title>
+  </head>
+<body>
+  Neighbors
+  <ul>
+    <li>fe80::212:4b00:430:5381</li>
+    <li>fe80::212:4b00:615:a4e1</li>
+    <li>fe80::212:4b00:60d:97ea</li>
+  </ul>
+  Routing links
+  <ul>
+    <li>2801:1e:4007:c0da:212:4b00:60d:97ea (parent: 2801:1e:4007:c0da:212:4b00:613:f6d) 1740s</li>
+    <li>2801:1e:4007:c0da:212:4b00:430:5381 (parent: 2801:1e:4007:c0da:212:4b00:60d:97ea) 1740s</li>
+    <li>2801:1e:4007:c0da:212:4b00:615:a4e1 (parent: 2801:1e:4007:c0da:212:4b00:613:f6d) 1800s</li>
+  </ul>
+</body>
+</html>
+   #+end_src
+* Aplicación Energest
+1) En una sesión de tmux correr el border-router
+   1) =tmux new -s tunslip=
+   2) Seguir los pasos en [[tunslip]]
+2) Tostar los motes con el coap-energest
+    =coap-energest.upload PORT=/dev/ttyUSBX=
+3) Lanzar el cliente de python que hace las peticiones a los distintos servidores
+    #+begin_src bash
+      python3 simple_observe.py
+    #+end_src
+      
