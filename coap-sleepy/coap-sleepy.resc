@@ -1,0 +1,47 @@
+:name: cc2538 range medium 2 nodes
+
+######################################################################
+#
+# Sample script creating 1 server node and 1 border router node
+# in range. Nodes are positioned in a 3D space (x,y,z),
+#
+# Differences in SyncUnit values in machines represent the differences
+# in their relative speed. This prevents the machines from
+# synchronizing in 100%, which is crucial for Contiki network stack
+# stability.
+#
+######################################################################
+
+path add $CWD
+emulation CreateWirelessMedium "wireless"
+# $domain = `emulation AddSyncDomain`
+# wireless SetSyncDomainFromEmulation $domain
+
+# The radio is using a range-based medium (with the `Range` set to `11`)
+# If not set, the default SimpleMediumFunction will be used (where range is not relevant)
+wireless SetRangeWirelessFunction 11
+
+####################### COAP ENERGEST - begin #########################
+$bin=@coap-sleepy.openmote-cc2538
+$name="coap-server"
+i $ORIGIN/cc2538-node.resc
+wireless SetPosition radio 0 0 0
+# machine SyncUnit 100
+showAnalyzer sysbus.uart0
+mach clear
+########################## HELLO WORLD - end ##########################
+
+######################### UDP SERVER - begin ########################
+# $bin=@udp-server.cc2538dk
+# $name="udp-server"
+
+# i $ORIGIN/cc2538-node.resc
+# wireless SetPosition radio 10 0 0
+# # machine SyncUnit 110
+# showAnalyzer sysbus.uart0
+# mach clear
+########################## HELLO WORLD2 - end #########################
+
+###########################  INIT  ##############################
+mach set 0
+sysbus.cpu StartGdbServer 3333
