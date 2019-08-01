@@ -38,7 +38,7 @@ $name="udp-server"
 i $ORIGIN/cc2538-node.resc
 wireless SetPosition radio 10 0 0
 # machine SyncUnit 110
-showAnalyzer sysbus.uart0
+# showAnalyzer sysbus.uart0
 mach clear
 ########################## HELLO WORLD2 - end #########################
 

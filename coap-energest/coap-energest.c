@@ -50,7 +50,6 @@
 #include "dev/leds.h"
 #include "lib/sensors.h"
 #include "sys/energest.h"
-#include "sys/rtimer.h"
 
 #ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 #include "adxl346.h"
@@ -58,8 +57,6 @@
 #include "dev/sht21.h"
 #endif
 
-/* #include "net/netstack.h" */
-#include "net/routing/routing.h"
 #include "project-conf.h"
 
 /* Log configuration */
@@ -83,16 +80,6 @@ extern coap_resource_t res_energest_periodic;
 PROCESS(er_example_server, "Erbium Example Server");
 AUTOSTART_PROCESSES(&er_example_server);
 /*---------------------------------------------------------------------------*/
-
-static struct rtimer timer_rtimer;
-static struct etimer timer;
-
-void rtimer_callback(struct rtimer *timer, void *ptr) {
-  /* Re-arm rtimer */
-  rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
-             rtimer_callback, NULL);
-}
-/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(er_example_server, ev, data) {
   PROCESS_BEGIN();
 
@@ -103,7 +90,6 @@ PROCESS_THREAD(er_example_server, ev, data) {
   /* bind recurso a uri-path */
   coap_activate_resource(&res_energest_periodic, "test/energest");
 
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
   coap_activate_resource(&res_temperature, "sensors/temperature");
 
   /* Initialize the SHT21 sensor */
@@ -112,10 +98,8 @@ PROCESS_THREAD(er_example_server, ev, data) {
     printf("SHT21 sensor is NOT present!\n");
     leds_on(LEDS_RED);
   }
-#endif
 
   /* Initialize Energest Module*/
-  /* struct energest_t energy = {0}; */
   energest_flush();
 
   energy.last_time = ENERGEST_GET_TOTAL_TIME();
@@ -127,19 +111,7 @@ PROCESS_THREAD(er_example_server, ev, data) {
 
   /* Define application-specific events here. */
   while (1) {
-
-    /* inicio un rtimer para que el nodo pueda despertar luego de PM1+ */
-    if (NETSTACK_ROUTING.node_is_reachable()) {
-      rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
-                 rtimer_callback, NULL);
-    }
-    else{
-      /* si el nodo aun no esta unido a una red creo un evento para */
-      /*   chequear nuevamente en un segundo */
-      etimer_set(&timer, CLOCK_SECOND * 1);
-    }
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-
+    PROCESS_YIELD();
   } /* while (1) */
 
   PROCESS_END();

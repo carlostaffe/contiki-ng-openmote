@@ -44,11 +44,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
 // FIXME: Necesario para incluir la variable global energy
 #include "../project-conf.h"
+#include "dev/leds.h"
+#include "dev/sys-ctrl.h"
 #include "lpm.h"
-#endif
+#include "net/ipv6/uip-ds6-nbr.h"
+#include "net/routing/routing.h"
+#include "net/routing/rpl-lite/rpl.h"
+#include "sys/rtimer.h"
 
 energest_t energy;
 /* Log configuration */
@@ -56,64 +60,103 @@ energest_t energy;
 #define LOG_MODULE "Energest"
 #define LOG_LEVEL LOG_LEVEL_DBG
 
+static struct rtimer timer_rtimer;
+
+/*---------------------------------------------------------------------------*/
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
                             uint8_t *buffer, uint16_t preferred_size,
                             int32_t *offset);
+/*---------------------------------------------------------------------------*/
 static void res_periodic_handler(void);
 
+/*---------------------------------------------------------------------------*/
 /* funcion para actualizar la estructura energy con */
 /* los ultimos datos de consumo */
 static void simple_energest_step(void);
 
+/*---------------------------------------------------------------------------*/
 /* funcion que devuelve el por mil del consumo de energia */
 /* solo utilizada para imprimir por puerto serie */
 static unsigned long to_permil(unsigned long delta_metric,
                                unsigned long delta_time);
 
+/*---------------------------------------------------------------------------*/
+/* #define PERIODIC_RESOURCE(name, attributes, get_handler, post_handler,         \ */
+/*                           put_handler, delete_handler, period,                 \ */
+/*                           periodic_handler) */
+
 PERIODIC_RESOURCE(res_energest_periodic,
                   "title=\"Energest Vals \";rt=\"Energest\"", res_get_handler,
-                  NULL, NULL, NULL, 30000, res_periodic_handler);
+                  NULL, NULL, NULL, 10000, res_periodic_handler);
 
-/*
- * Use local resource state that is accessed by res_get_handler() and altered by
- * res_periodic_handler() or PUT or POST.
- */
-static int32_t event_counter = 0;
 
+/*---------------------------------------------------------------------------*/
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
                             uint8_t *buffer, uint16_t preferred_size,
                             int32_t *offset) {
 
-  simple_energest_step();
 
   unsigned int accept = -1;
   coap_get_header_accept(request, &accept);
 
   coap_set_header_content_format(response, TEXT_PLAIN);
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+
   snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%lu;%lu;%lu;%lu;%lu;%lu;%lu",
            energy.delta_time / ENERGEST_SECOND, energy.delta_time,
            energy.delta_cpu, energy.delta_lpm, energy.delta_deep_lpm,
            energy.delta_tx, energy.delta_rx);
-#else
-  snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "Placeholder");
-#endif
+
   coap_set_header_max_age(response, res_energest_periodic.periodic->period /
                                         CLOCK_SECOND);
   coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
 }
+/*---------------------------------------------------------------------------*/
+void rtimer_callback(struct rtimer *timer, void *ptr) {
+  LOG_DBG("rtimer coap-energest expiro");
 
-static void res_periodic_handler() {
-  /* Do a periodic task here, e.g., sampling a sensor. */
-  ++event_counter;
+  leds_on(LEDS_YELLOW);
 
-  /* Usually a condition is defined under with subscribers are notified, e.g.,
-   * large enough delta in sensor reading. */
-  if (1) {
-    /* Notify the registered observers which will trigger the res_get_handler to
-     * create the response. */
+  volatile int busy = 0;
+  for (int j = 0; j < 150000; j++) {
+    busy++;
+  }
+  leds_off(LEDS_YELLOW);
+
+  /* Antes de notificar, verificar que no estemos en PM1+ */
+  /* Si esta en PM1+, no notificar y encender led rojo. */
+  if ((REG(SYS_CTRL_PMCTL) & SYS_CTRL_PMCTL_PM3) == SYS_CTRL_PMCTL_PM0) {
     coap_notify_observers(&res_energest_periodic);
   }
+  else{
+    leds_on(LEDS_RED);
+  }
+    /* normalmente se rearma el timer, pero como se lo schedulea en la fn. de */
+    /* res_periodic_handler, se estima que no es necesario */
+    rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 2, 0,
+               rtimer_callback, NULL);
+  }
+
+/*---------------------------------------------------------------------------*/
+/* Esta funcion es llamada periodicamente segun el periodo definido en
+*  PERIODIC_RESOURCE*/ 
+static void res_periodic_handler() {
+  /* Do a periodic task here, e.g., sampling a sensor. */
+  simple_energest_step();
+
+  /* inicio un rtimer para que el nodo pueda despertar luego de PM1+ */
+  /* este timer se reinicia en su callback, luego solo se debe llamar una vez */
+  /* ademas se verifica que el nodo tenga un default gateway para evitar iniciar */
+  /* PM1+ antes de que haya obtenido la configuracion de red*/
+  uip_ds6_nbr_t *nbr;
+  nbr = uip_ds6_nbr_lookup(uip_ds6_defrt_choose());
+
+  if (nbr->state == NBR_REACHABLE && timer_rtimer.time == 0) {
+
+    LOG_DBG("Inicializado rtimer\n");
+    if(rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND/2, 1,
+                  rtimer_callback, NULL) != RTIMER_OK)
+      LOG_ERR("Error iniciando rtimer\n");
+    }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -165,3 +208,4 @@ static void simple_energest_step(void) {
            energy.delta_tx + energy.delta_rx, energy.delta_time,
            to_permil(energy.delta_tx + energy.delta_rx, energy.delta_time));
 }
+

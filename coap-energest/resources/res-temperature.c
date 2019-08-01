@@ -57,7 +57,7 @@ static void res_periodic_handler(void);
 #define MAX_AGE      60
 #define INTERVAL_MIN 5
 #define INTERVAL_MAX (MAX_AGE - 1)
-#define CHANGE       1 
+#define CHANGE       0.01 
 
 static int32_t interval_counter = INTERVAL_MIN;
 static int32_t temperature_old = INT_MIN;

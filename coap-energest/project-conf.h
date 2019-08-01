@@ -53,6 +53,7 @@
 #define LOG_CONF_LEVEL_MAIN LOG_LEVEL_DBG
 
 #define PLATFORM_HAS_TEMPERATURE 1
+
 typedef struct {
 	unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
 	         last_deep_lpm;

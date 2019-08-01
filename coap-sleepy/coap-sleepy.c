@@ -29,13 +29,15 @@
  * This file is part of the Contiki operating system.
  */
 
-/* * includes -------------------------------------------------*/
+/* *includes -------------------------------------------------*/
 #include "coap-engine.h"
 #include "contiki.h"
 #include "dev/button-hal.h"
 #include "dev/button-sensor.h"
 #include "dev/leds.h"
 #include "lib/sensors.h"
+#include "net/ipv6/uip-ds6-nbr.h"
+#include "net/ipv6/uip-ds6-route.h"
 #include "sys/energest.h"
 #include "sys/stimer.h"
 #include <stdio.h>
@@ -55,49 +57,49 @@
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_APP
 
-/* * macros -------------------------------------------------*/
+/* *macros */
 
 /* Normal mode duration params in seconds */
 #define NORMAL_OP_DURATION_DEFAULT 10
-#define NORMAL_OP_DURATION_MIN     10
-#define NORMAL_OP_DURATION_MAX     60
+#define NORMAL_OP_DURATION_MIN 10
+#define NORMAL_OP_DURATION_MAX 60
 /*---------------------------------------------------------------------------*/
 /* Observer notification period params in seconds */
-#define PERIODIC_INTERVAL_DEFAULT  30
-#define PERIODIC_INTERVAL_MIN      30
-#define PERIODIC_INTERVAL_MAX      86400 /* 1 day */
+#define PERIODIC_INTERVAL_DEFAULT 30
+#define PERIODIC_INTERVAL_MIN 30
+#define PERIODIC_INTERVAL_MAX 86400 /* 1 day */
 /*---------------------------------------------------------------------------*/
 #define VERY_SLEEPY_MODE_OFF 0
-#define VERY_SLEEPY_MODE_ON  1
+#define VERY_SLEEPY_MODE_ON 1
 /*---------------------------------------------------------------------------*/
 #define BUTTON_TRIGGER BUTTON_HAL_ID_BUTTON_ZERO
 /*---------------------------------------------------------------------------*/
-#define MAC_CAN_BE_TURNED_OFF  0
-#define MAC_MUST_STAY_ON       1
+#define MAC_CAN_BE_TURNED_OFF 0
+#define MAC_MUST_STAY_ON 1
 
 #define KEEP_MAC_ON_MIN_PERIOD 10 /* secs */
 /*---------------------------------------------------------------------------*/
-#define PERIODIC_INTERVAL         CLOCK_SECOND
+#define PERIODIC_INTERVAL CLOCK_SECOND
 /*---------------------------------------------------------------------------*/
-#define POST_STATUS_BAD           0x80
-#define POST_STATUS_HAS_MODE      0x40
-#define POST_STATUS_HAS_DURATION  0x20
-#define POST_STATUS_HAS_INTERVAL  0x10
-#define POST_STATUS_NONE          0x00
+#define POST_STATUS_BAD 0x80
+#define POST_STATUS_HAS_MODE 0x40
+#define POST_STATUS_HAS_DURATION 0x20
+#define POST_STATUS_HAS_INTERVAL 0x10
+#define POST_STATUS_NONE 0x00
 /*---------------------------------------------------------------------------*/
 #define STATE_NORMAL 0
 #define STATE_NOTIFY_OBSERVERS 1
 #define STATE_VERY_SLEEPY 2
 
-/* * variables globales -------------------------------------*/
+/* *variables globales -------------------------------------*/
 static struct stimer st_duration;
 static struct stimer st_interval;
-/* static struct stimer st_min_mac_on_duration; */
+static struct stimer st_min_mac_on_duration;
 static struct etimer et_periodic;
 static process_event_t event_new_config;
 static uint8_t state;
 
-/*****************************************************************************/
+/*---------------------------------------------------------------------------*/
 typedef struct sleepy_config_s {
   unsigned long interval;
   unsigned long duration;
@@ -106,19 +108,57 @@ typedef struct sleepy_config_s {
 
 sleepy_config_t config;
 
-/* * funciones locales --------------------------------------*/
+/* *funciones locales --------------------------------------*/
 
-/* ** keep_mac_on --------------------------------------*/
-static uint8_t
-keep_mac_on(void)
-{
-/* por ahora no hacemos nada */
-  return MAC_MUST_STAY_ON;
+/* **keep_mac_on --------------------------------------*/
+static uint8_t keep_mac_on(void) {
+
+  /* Entrada en la tabla de ruteo. Representa un nodo de vecino de la red */
+  uip_ds6_nbr_t *nbr;
+  uint8_t rv = MAC_CAN_BE_TURNED_OFF;
+
+  if (!stimer_expired(&st_min_mac_on_duration)) {
+    return MAC_MUST_STAY_ON;
+  }
+
+/* FIXME que hace esto? donde se configura */
+#if RPL_WITH_PROBING
+  /* Determine if we are about to send a RPL probe */
+  if (CLOCK_LT(etimer_expiration_time(
+                   &rpl_get_default_instance()->dag.probing_timer.etimer),
+               (clock_time() + PERIODIC_INTERVAL))) {
+    rv = MAC_MUST_STAY_ON;
+  }
+#endif
+
+  /* It's OK to pass a NULL pointer, the callee checks and returns NULL */
+  /* La funcion uip_ds6_defrt_choose() regresa (si existe) la ruta IPv6 por
+   * defecto 
+   * la funcion uip_ds6_nbr_lookup() regresa la estructura nbr (que contiene
+   * la dir. de enlace de una ipv6 asociada) de la ruta por defecto */
+  nbr = uip_ds6_nbr_lookup(uip_ds6_defrt_choose());
+
+  /* si la sentencia anterior puede devolver una serie de valores segun sea
+   el estado de la cache de Neighbor Discovery. Ver archivo uip-ds6-nbr.h*/
+  if (nbr == NULL) {
+    /* We don't have a default route, or it's not reachable (NUD likely). */
+    rv = MAC_MUST_STAY_ON;
+  } else {
+    if (nbr->state != NBR_REACHABLE) {
+      rv = MAC_MUST_STAY_ON;
+    }
+  }
+
+  if (rv == MAC_MUST_STAY_ON && stimer_expired(&st_min_mac_on_duration)) {
+    stimer_set(&st_min_mac_on_duration, KEEP_MAC_ON_MIN_PERIOD);
+  }
+
+  return rv;
+  /* por ahora no hacemos nada */
+  /* return MAC_MUST_STAY_ON; */
 }
-/* ** switch_to_normal --------------------------------------*/
-static void
-switch_to_normal(void)
-{
+/* **switch_to_normal --------------------------------------*/
+static void switch_to_normal(void) {
   state = STATE_NOTIFY_OBSERVERS;
 
   /*
@@ -129,23 +169,19 @@ switch_to_normal(void)
   stimer_set(&st_interval, config.interval);
 }
 
-/* ** switch_to_very_sleepy --------------------------------------*/
-static void
-switch_to_very_sleepy(void)
-{
-  state = STATE_VERY_SLEEPY;
-}
+/* **switch_to_very_sleepy --------------------------------------*/
+static void switch_to_very_sleepy(void) { state = STATE_VERY_SLEEPY; }
 
-/* * main thread --------------------------------------------*/
+/* *main thread --------------------------------------------*/
 
-/* ** preamble ***************************************************************/
+/* **preamble --------------------------------------------------------------*/
 PROCESS(er_coap_server, "CoAP Sleepy Energest");
 AUTOSTART_PROCESSES(&er_coap_server);
-/*---------------------------------------------------------------------------*/
+
 PROCESS_THREAD(er_coap_server, ev, data) {
 
   uint8_t mac_keep_on;
- 
+
   PROCESS_BEGIN();
 
   config.mode = VERY_SLEEPY_MODE_OFF;
@@ -162,24 +198,26 @@ PROCESS_THREAD(er_coap_server, ev, data) {
   switch_to_normal();
 
   etimer_set(&et_periodic, PERIODIC_INTERVAL);
-/* ** infinite loop **********************************************************/
+
+  /* **infinite loop ---------------------------------------------------------*/
   while (1) {
     PROCESS_YIELD();
 
-    if(ev == button_hal_release_event &&
-       ((button_hal_button_t *)data)->unique_id == BUTTON_TRIGGER) {
+    /* FIXME BUTTON_TRIGGER existe para cc2538? */
+    if (ev == button_hal_release_event &&
+        ((button_hal_button_t *)data)->unique_id == BUTTON_TRIGGER) {
       switch_to_normal();
     }
 
-    if(ev == event_new_config) {
+    if (ev == event_new_config) {
       stimer_set(&st_interval, config.interval);
       stimer_set(&st_duration, config.duration);
     }
 
-    if((ev == PROCESS_EVENT_TIMER && data == &et_periodic) ||
-       (ev == button_hal_release_event &&
-        ((button_hal_button_t *)data)->unique_id == BUTTON_TRIGGER) ||
-       (ev == event_new_config)) {
+    if ((ev == PROCESS_EVENT_TIMER && data == &et_periodic) ||
+        (ev == button_hal_release_event &&
+         ((button_hal_button_t *)data)->unique_id == BUTTON_TRIGGER) ||
+        (ev == event_new_config)) {
 
       /*
        * Determine if the stack is about to do essential network maintenance
@@ -187,7 +225,7 @@ PROCESS_THREAD(er_coap_server, ev, data) {
        */
       mac_keep_on = keep_mac_on();
 
-      if(mac_keep_on == MAC_MUST_STAY_ON || state != STATE_VERY_SLEEPY) {
+      if (mac_keep_on == MAC_MUST_STAY_ON || state != STATE_VERY_SLEEPY) {
         leds_on(LEDS_GREEN);
         /* NETSTACK_MAC.on(); */
       }
@@ -196,25 +234,25 @@ PROCESS_THREAD(er_coap_server, ev, data) {
        * Next, switch between normal and very sleepy mode depending on config,
        * send notifications to observers as required.
        */
-      if(state == STATE_NOTIFY_OBSERVERS) {
+      if (state == STATE_NOTIFY_OBSERVERS) {
         /* coap_notify_observers(&readings_resource); */
         state = STATE_NORMAL;
       }
 
-      if(state == STATE_NORMAL) {
-        if(stimer_expired(&st_duration)) {
+      if (state == STATE_NORMAL) {
+        if (stimer_expired(&st_duration)) {
           stimer_set(&st_duration, config.duration);
-          if(config.mode == VERY_SLEEPY_MODE_ON) {
+          if (config.mode == VERY_SLEEPY_MODE_ON) {
             switch_to_very_sleepy();
           }
         }
-      } else if(state == STATE_VERY_SLEEPY) {
-        if(stimer_expired(&st_interval)) {
+      } else if (state == STATE_VERY_SLEEPY) {
+        if (stimer_expired(&st_interval)) {
           switch_to_normal();
         }
       }
 
-      if(mac_keep_on == MAC_CAN_BE_TURNED_OFF && state == STATE_VERY_SLEEPY) {
+      if (mac_keep_on == MAC_CAN_BE_TURNED_OFF && state == STATE_VERY_SLEEPY) {
         leds_off(LEDS_GREEN);
         /* NETSTACK_MAC.off(); */
       } else {
@@ -225,7 +263,7 @@ PROCESS_THREAD(er_coap_server, ev, data) {
       /* Schedule next pass */
       etimer_set(&et_periodic, PERIODIC_INTERVAL);
     }
-  
+
   } /* while (1) */
 
   PROCESS_END();
