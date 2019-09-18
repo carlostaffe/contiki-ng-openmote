@@ -1,131 +1,111 @@
-* Border Router <<tunslip>>
-Se debe compilar un programa con función de border router (ej: =examples/rpl-border-router=)
-
-1) Verificar que en el Makefile la variable =PREFIX= tenga valor para usar una IPv6 determinada:
-  #+begin_src makefile
-    PREFIX = 2801:1e:4007:c0da::1/64
-  #+end_src
-2) Tostar el mote con dicho programa
-  #+begin_src bash
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 border-router.upload
-   #+end_src
-3) Crear el tuner entre la PC (o raspberry) y el mote:
-  #+begin_src bash
+* Border Router
+** tunslip
+   Lanzarlo desde una aplicación con RPL-BR
+   #+begin_src bash
      make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
    #+end_src
-4) Si todo sale bien verificar una salida como:
-   #+begin_src bash
-sudo ../../tools/serial-io/tunslip6 2801:1e:4007:c0da::1/64
-SLIP started on ``/dev/ttyUSB0''
-opened tun device ``/dev/tun0''
-ifconfig tun0 inet `hostname` mtu 1500 up
-ifconfig tun0 add 2801:1e:4007:c0da::1/64
-ifconfig tun0 add fe80::1c:4007:c0da:1/64
-ifconfig tun0
+* rpl+coap
+En este escenario se tien un router de borde conectado a motes con servidores coap.
 
-tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
-        inet 127.0.1.1  netmask 255.255.255.255  destination 127.0.1.1
-        inet6 fe80::5a06:7d11:dde6:eb06  prefixlen 64  scopeid 0x20<link>
-        inet6 fe80::1c:4007:c0da:1  prefixlen 64  scopeid 0x20<link>
-        inet6 2801:1e:4007:c0da::1  prefixlen 64  scopeid 0x0<global>
-        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
-[INFO: BR        ] Waiting for prefix
- Address:2801:1e:4007:c0da::1 => 2801:001e:4007:c0da
-[INFO: BR        ] Waiting for prefix
-[INFO: BR        ] Server IPv6 addresses:
-[INFO: BR        ]   2801:1e:4007:c0da:212:4b00:613:f6d
-[INFO: BR        ]   fe80::212:4b00:613:f6d
+** rpl-border-router
+1) Ubicarse dentro del directorio =examples/rpl-border-router=
+2) Colocar la variable =PREFIX= en el Makefile 
+   #+begin_src 
+PREFIX = 2801:1e:4007:c0da::1/64 
+   #+end_src
+3) Compilar con make
+   #+begin_src 
+  make TARGET=openmote-cc2538 border-router
+   #+end_src
+4) Cargar el firmware al moter
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX border-router.upload
+   #+end_src
+5) Iniciar el router de borde:
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX connect-router
+   #+end_src
+   
+** coap-example-server
+
+1) Ubicarse dentro del directorio =examples/coap/coap-example-server/=
+2) Compilar con make
+   #+begin_src 
+  make TARGET=openmote-cc2538 coap-example-server
+   #+end_src
+3) Cargar el firmware al moter
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX coap-example-server.upload
+   #+end_src
+4) (opcional) ver log desde el puerto serie
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX login
+   #+end_src
+
+** verificar conexión
+1) Ver los dispositivos conectados al router de borde (red rpl)
+   #+begin_src 
+  wget -6 "http://[<ipv6-border-router>]/"; cat index.html; rm index.html
+   #+end_src
+3) ping a cada uno
+   #+begin_src 
+  ping6 -I tun0 <ipv6-mote-coap>
+   #+end_src
+   
+3) el cliente coap de npm no me funciona, en su lugar lo pruebo con la librería =aiocoap= de python:
+#+begin_src python
+from aiocoap import *
+
+uri_tty1 = "coap://[2801:1e:4007:c0da:212:4b00:60d:97ea]/.well-known/core"
+async def main():
+    protocol = await Context.create_client_context()
+
+    request = Message(code=GET, uri=uri_tty1)
+
+    try:
+        response = await protocol.request(request).response
+    except Exception as e:
+        print('Failed to fetch resource:')
+        print(e)
+    else:
+        print('Result: %s\n%r'%(response.code, response.payload))
+        
+asyncio.get_event_loop().run_until_complete(main())
+#+end_src
+Si todo funciona el nodo responde:
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2019-09-17 20:10:55
+[[file:images/getting_started/screenshot_2019-09-17_20-10-55.png]]
+
+* rpl+tsch+coap
+1) Realizar los pasos de <<rpl+coap>>
+2) Agregar el flag =MAKE_MAC= a =example/rpl-border-router= y =example/coap/coap-example-server=:
+  #+begin_src 
+  MAKE_MAC = MAKE_MAC_TSCH
+
+  MODULES += os/services/shell
   #+end_src
-  La dirección pública IPv6 es la línea inferior a =Server IPv6 addresses:=. Tomar nota de ella.
-5) Para verificar los nodos conectados al DAG se puede hacer:
-  #+begin_src bash
-      wget -6 "http://[2801:1e:4007:c0da:212:4b00:613:f6d]/"; cat index.html; rm index.html
+  (opcional) añadir el módulo =shell= a =MODULES= para poder interactuar a través del puerto serie con los motes.
+3) Limpiar, compilar y cargar los programas
+   #+begin_src 
+   make distclean
+   make TARGET=openmote-cc2538 coap-example-server.upload PORT=/dev/ttyUSBX
+   make TARGET=openmote-cc2538 border-router.upload PORT=/dev/ttyUSBX
    #+end_src
-   Una posible salida es:
-  #+begin_src bash
---2019-06-25 20:30:42--  http://[2801:1e:4007:c0da:212:4b00:613:f6d]/
-Conectando con [2801:1e:4007:c0da:212:4b00:613:f6d]:80... conectado.
-Petición HTTP enviada, esperando respuesta... 200 OK
-Longitud: no especificado [text/html]
-Grabando a: “index.html”
-
-index.html                                    [  <=>                                                                                ]     549  1,45KB/s    in 0,4s
-
-2019-06-25 20:30:42 (1,45 KB/s) - “index.html” guardado [549]
-
-<html>
-  <head>
-    <title>Contiki-NG</title>
-  </head>
-<body>
-  Neighbors
-  <ul>
-    <li>fe80::212:4b00:430:5381</li>
-    <li>fe80::212:4b00:615:a4e1</li>
-    <li>fe80::212:4b00:60d:97ea</li>
-  </ul>
-  Routing links
-  <ul>
-    <li>2801:1e:4007:c0da:212:4b00:60d:97ea (parent: 2801:1e:4007:c0da:212:4b00:613:f6d) 1740s</li>
-    <li>2801:1e:4007:c0da:212:4b00:430:5381 (parent: 2801:1e:4007:c0da:212:4b00:60d:97ea) 1740s</li>
-    <li>2801:1e:4007:c0da:212:4b00:615:a4e1 (parent: 2801:1e:4007:c0da:212:4b00:613:f6d) 1800s</li>
-  </ul>
-</body>
-</html>
+4) Iniciar el router de borde:
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX connect-router
    #+end_src
-* Aplicación Energest
-Esta aplicación disponibiliza dos recursos CoAP. En los motes se graba un FW para servir un recurso CoAP periódico para obtener lecturas de temperatura y otro recurso observable para lecturas de energía consumida.
-1) En una sesión de tmux correr el border-router
-   1) =tmux new -s tunslip=
-   2) Seguir los pasos en [[tunslip]]
-2) Tostar los motes con el coap-energest
-    =coap-energest.upload PORT=/dev/ttyUSBX=
-3) Lanzar el cliente de python que hace las peticiones a los distintos servidores
-    #+begin_src bash
-      python3 simple_observe.py
-    #+end_src
-* Aplicación Energest-Sleepy
-Esta aplicación intenta ampliar la aplicación anterior, agregando un modo de bajo consumo de energía en el cual el mote debe estar la mayor parte del tiempo.
-Se basa en un ejemplo de =contiki-os= para el =cc26x0= y el =cc13x0=.
-** Análisis del código =very-sleepy-demo.c=
-*** Timers
-1) etimer et_timer :: Planifica el evento =PERIODIC_INTERVAL= al cabo del cual se ejecuta la MEF y se actualiza el estado en caso de ser necesario.
-2) stimer st_interval ::
-3) stimer st_duration :: 
-*** Protothread Principal
-   1) Se activan los sensores de batería.
-   2) Se configura la variable =sleepy_config_t config= para inicializar el mote en estado =NORMAL=. En este estado se aceptan configuraciones de RPL y no se realiza duty-cycling de la MAC.
-   3) Activa un recurso CoAP observable =readings_resource= bajo el path =sen/readings= y luego otro observable =very_sleepy_conf= bajo el path =very_sleepy_config=.
-   4) setea un etimer períodico =et_timer= en =PERIODIC_INTERVAL=. Con este timer se actualiza el estado de la MEF.
-   5) en el bucle =while(1)= inicia una máquina de estados:
-      1) si se recibe un evento de botón presionado, volver al estado normal
-      2) si se recibe un evento =event_new_config= setear dos stimer =st_interval= y =st_duration=
-      3) si expira el timer =et_timer= o si se presiona un botón:
-         1) encender el led verde si se realizan tareas de configuración
-         2) notificar a los observadores =state= = =STATE_NOTIFY_OBSERVERS= y cambiar a estado =STATE_NORMAL=
-         3) si =state= = =STATE_NORMAL=, determina si =st_duration= expiró en cuyo caso cambiar a =VERY_SLEEPY_MODE=
-         4) si =state= = =STATE_NORMAL= y expiró =st_interval= cambiar a =NORMAL_STATE=
-         5) si =state= = =STATE_VERY_SLEEPY= y no se hacen tareas de red, apagar la MAC (radio) y el led verde
-         6) finalmente programar el próximo etimer =et_periodic= en =PERIODIC_INTERVAL=
-*** =switch_to_very_sleepy()= 
-Solo se cambia el estado a =STATE_VERY_SLEEPY=
-*** =switch_to_normal()=
-Se cambia el estado a =STATE_NOTIFY_OBSERVERS= y se setean los timers =st_duration= y =st_interval=
+5) Realizar las comprobaciones con ping y aiocoap como se indicó en <<verificar conexión>>
+6) Hacer login a uno de los motes con servidor CoAP con:
+   #+begin_src 
+  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX login
+   #+end_src
+   Presionar enter una vez que se ingresa para obtener un prompt. 
+   Escribir =tsch-status= y verificar que en el resultado se encuentre en 1 =Is associated= y
+que el =Time source= sea la ipv6 del router de borde.
 
-*** =keep_mac_on()=
-Se determina si la MAC puede apagarse o no
-*** Recurso =readings_resource=
-Se crea el handler =readings_get_handler= (GET)
-*** Recurso =very_sleepy_conf=
-Se crea el handler =conf_get_handler= (GET) y =conf_post_handler= (POST)
-   1) =conf_get_handler= formatea un payload con la siguiente info =config.mode=, =config.duration= y =config.interval=
-   2) =conf_post_handler= permite cambiar cualquiera de la info anterior
-** Implementación de un primer boceto
-En esta primera e incompleta aproximación se intenta replicar la MEF junto con los timers. Sin implementar funciones de HW.
-
+#+DOWNLOADED: /tmp/screenshot.png @ 2019-09-17 20:47:32
+[[file:images/getting_started/screenshot_2019-09-17_20-47-32.png]]
 
