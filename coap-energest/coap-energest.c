@@ -70,11 +70,7 @@
  * sub-directory.
  */
 
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
-extern coap_resource_t res_temperature, res_energest_periodic;
-#else
-extern coap_resource_t res_energest_periodic;
-#endif
+extern coap_resource_t res_temperature, res_light, res_energest;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(er_example_server, "Erbium Example Server");
@@ -88,17 +84,29 @@ PROCESS_THREAD(er_example_server, ev, data) {
   LOG_INFO("Inicio del pt-coap-server\n");
 
   /* bind recurso a uri-path */
-  coap_activate_resource(&res_energest_periodic, "test/energest");
-
+  coap_activate_resource(&res_energest, "test/energest");
   coap_activate_resource(&res_temperature, "sensors/temperature");
+  coap_activate_resource(&res_light, "sensors/light");
+
+  /* Initialize the MAX44009 sensor */
+  uint16_t max44009_present = SENSORS_ACTIVATE(max44009);
+  if (max44009_present == MAX44009_ERROR) {
+    LOG_INFO("Error al configurar sensor luz\n");
+  }
+
+  /* Initialize the ADXL346 sensor */
+  uint16_t adxl346_present = SENSORS_ACTIVATE(adxl346);
+  if (adxl346_present == ADXL346_ERROR) {
+    LOG_INFO("Error al configurar acelerometro\n");
+  } else {
+    adxl346.configure(ADXL346_CALIB_OFFSET, 0);
+  }
 
   /* Initialize the SHT21 sensor */
   uint16_t sht21_present = SENSORS_ACTIVATE(sht21);
   if (sht21_present == SHT21_ERROR) {
-    printf("SHT21 sensor is NOT present!\n");
-    leds_on(LEDS_RED);
+    LOG_INFO("Error al configurar acelerometro\n");
   }
-
   /* Initialize Energest Module*/
   energest_flush();
 
