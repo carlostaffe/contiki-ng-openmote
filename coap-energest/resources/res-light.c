@@ -31,58 +31,90 @@
 
 /**
  * \file
- *      Example resource
+ *      Example of an observable "on-change" temperature resource
  * \author
  *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
+ * \author
+ *      Cristiano De Alti <cristiano_dealti@hotmail.com>
  */
 
 #include "contiki.h"
 
-#if PLATFORM_HAS_LIGHT
+#if PLATFORM_HAS_TEMPERATURE
 
-#include <stdio.h>
-#include <string.h>
 #include "coap-engine.h"
-#include "dev/light-sensor.h"
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static void res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+// begin - agregado
+#include "dev/max44009.h"
+#include "lib/sensors.h"
+#include "sys/log.h"
+#define LOG_MODULE "App"
+#define LOG_LEVEL LOG_LEVEL_APP
+// end - agregado
 
-/* A simple getter example. Returns the reading from light sensor with a simple etag */
-RESOURCE(res_light,
-         "title=\"Photosynthetic and solar light (supports JSON)\";rt=\"LightSensor\"",
-         res_get_handler,
-         NULL,
-         NULL,
-         NULL);
+static void res_get_handler(coap_message_t *request, coap_message_t *response,
+                            uint8_t *buffer, uint16_t preferred_size,
+                            int32_t *offset);
+/* static void res_periodic_handler(void); */
 
-static void
-res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
-{
-  uint16_t light_photosynthetic = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
-  uint16_t light_solar = light_sensor.value(LIGHT_SENSOR_TOTAL_SOLAR);
+#define MAX_AGE 60
+/* #define INTERVAL_MIN 5 */
+/* #define INTERVAL_MAX (MAX_AGE - 1) */
+/* #define CHANGE 0.1 */
+
+/* static int32_t interval_counter = INTERVAL_MIN; */
+/* static int32_t temperature_old = INT_MIN; */
+
+static int32_t light = 0;
+
+PERIODIC_RESOURCE(res_light,
+                  "title=\"Light\";rt=\"Light\";obs",
+                  res_get_handler, NULL, NULL, NULL, 1000,
+                  NULL);
+
+static void res_get_handler(coap_message_t *request, coap_message_t *response,
+                            uint8_t *buffer, uint16_t preferred_size,
+                            int32_t *offset) {
+
+  light = max44009.value(MAX44009_READ_LIGHT);
+
+  LOG_INFO("Valor Luz:\t%ld\n", light);
 
   unsigned int accept = -1;
   coap_get_header_accept(request, &accept);
 
-  if(accept == -1 || accept == TEXT_PLAIN) {
+  if (accept == -1 || accept == TEXT_PLAIN) {
     coap_set_header_content_format(response, TEXT_PLAIN);
-    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "%u;%u", light_photosynthetic, light_solar);
+    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "l:%ld", light);
 
     coap_set_payload(response, (uint8_t *)buffer, strlen((char *)buffer));
-  } else if(accept == APPLICATION_XML) {
-    coap_set_header_content_format(response, APPLICATION_XML);
-    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "<light photosynthetic=\"%u\" solar=\"%u\"/>", light_photosynthetic, light_solar);
-
-    coap_set_payload(response, buffer, strlen((char *)buffer));
-  } else if(accept == APPLICATION_JSON) {
-    coap_set_header_content_format(response, APPLICATION_JSON);
-    snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE, "{'light':{'photosynthetic':%u,'solar':%u}}", light_photosynthetic, light_solar);
-
-    coap_set_payload(response, buffer, strlen((char *)buffer));
-  } else {
-    coap_set_status_code(response, NOT_ACCEPTABLE_4_06);
-    const char *msg = "Supporting content-types text/plain, application/xml, and application/json";
-    coap_set_payload(response, msg, strlen(msg));
   }
+
+  coap_set_header_max_age(response, MAX_AGE);
 }
-#endif /* PLATFORM_HAS_LIGHT */
+
+/*
+ * Additionally, a handler function named [resource name]_handler must be
+ * implemented for each PERIODIC_RESOURCE. It will be called by the coap_manager
+ * process with the defined period.
+ */
+/* static void res_periodic_handler() { */
+/*   /\* int temperature = temperature_sensor.value(0); *\/ */
+/*   int luz = sht21.value(SHT21_READ_TEMP); */
+/*   ++interval_counter; */
+
+/*   if ((abs(temperature - temperature_old) >= CHANGE && */
+/*        interval_counter >= INTERVAL_MIN) || */
+/*       interval_counter >= INTERVAL_MAX) { */
+/*     interval_counter = 0; */
+/*     temperature_old = temperature; */
+/*     /\* Notify the registered observers which will trigger the res_get_handler to */
+/*      * create the response. *\/ */
+/*     coap_notify_observers(&res_temperature); */
+/*   } */
+/* } */
+#endif /* PLATFORM_HAS_TEMPERATURE */
