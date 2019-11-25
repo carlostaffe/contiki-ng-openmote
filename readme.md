@@ -99,6 +99,14 @@ Hay un tmux corriendo
 	tmux -l  ( una sesion corre el connect-router y la otra la app de python que consume coap y escribe en la influxdb
 	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
 
-TODO: hacer que pushee con llaves
+# Apps que deben correr en el arranque
+Tunel slip para que lo que ingresa por puerto serie del border router salga por la ethernet de la raspy y viceversa
 
+    sudo /home/pi/Workspace/contiki-ng/tools/serial-io/tunslip6 -s /dev/ttyUSB0 2801:1e:4007:c0da::1/64
+    
+Cliente python que asincronamente consume los recursos coap
+
+     /home/pi/.pyenv/versions/3.7.5/bin/python /home/pi/Workspace/contiki-ng/apps/coap-energest/python_clients/wip.py
+     
+NOTA: hay que especificar versión 3.7 o superior de python para las funcionalidades del módulo async
 
