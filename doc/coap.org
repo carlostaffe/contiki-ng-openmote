@@ -4,8 +4,6 @@
      coap://[2801:1e:4007:c0da:212:4b00:430:5381]/sensors/temperature
    #+end_example
    
-   
-
 * Clientes
   Los clientes son quiene leen los recursos disponibilizados por los servidores. Normalmente el cliente el el router de borde (ej: raspberry).
    

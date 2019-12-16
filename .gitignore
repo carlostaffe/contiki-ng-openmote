@@ -70,3 +70,6 @@ cpu/x86/uefi/edk2
 
 /hello-world/.gdbinit
 /coap-energest/.gdbinit
+/coap-energest/python_clients/observe_tty2.py
+/coap-energest/python_clients/test_f6d.py
+/coap-energest/python_clients/test_a4e1.py

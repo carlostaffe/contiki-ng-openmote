@@ -13,7 +13,7 @@ El registro de tiempo se realiza mediante /on chip timers/ los cuales (al menos 
 + Battery Lifetime Estimation :: No es posible traducir el consumo promedio en tiempo de vida de un mote alimentado por batería pues las baterías no son lineales.
 + Elementos no lineales :: Ciertos componentes del HW son no lineales, de tal manera que el consumo no se puede calcular como la suma de los consumos individuales de cada componente.
 
-* Energest rontiki-ng
+* Energest contiki-ng
 https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-Energest
 ** Tipos 
 Existen al menos cinco tipos predefinidos que reconocen todas las plataformas. 

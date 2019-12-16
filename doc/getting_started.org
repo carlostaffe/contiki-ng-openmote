@@ -2,7 +2,7 @@
 ** tunslip
    Lanzarlo desde una aplicación con RPL-BR
    #+begin_src bash
-     make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
+     make TARGET=openmote PORT=/dev/ttyUSB0 connect-router
    #+end_src
 * rpl+coap
 En este escenario se tien un router de borde conectado a motes con servidores coap.
@@ -16,15 +16,15 @@ PREFIX = 2801:1e:4007:c0da::1/64
    #+end_src
 3) Compilar con make
    #+begin_src 
-  make TARGET=openmote-cc2538 border-router
+  make TARGET=openmote border-router
    #+end_src
 4) Cargar el firmware al moter
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX border-router.upload
+  make TARGET=openmote PORT=/dev/ttyUSBX border-router.upload
    #+end_src
 5) Iniciar el router de borde:
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX connect-router
+  make TARGET=openmote PORT=/dev/ttyUSBX connect-router
    #+end_src
    
 ** coap-example-server
@@ -32,15 +32,15 @@ PREFIX = 2801:1e:4007:c0da::1/64
 1) Ubicarse dentro del directorio =examples/coap/coap-example-server/=
 2) Compilar con make
    #+begin_src 
-  make TARGET=openmote-cc2538 coap-example-server
+  make TARGET=openmote coap-example-server
    #+end_src
 3) Cargar el firmware al moter
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX coap-example-server.upload
+  make TARGET=openmote PORT=/dev/ttyUSBX coap-example-server.upload
    #+end_src
 4) (opcional) ver log desde el puerto serie
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX login
+  make TARGET=openmote PORT=/dev/ttyUSBX login
    #+end_src
 
 ** verificar conexión
@@ -90,17 +90,17 @@ Si todo funciona el nodo responde:
 3) Limpiar, compilar y cargar los programas
    #+begin_src 
    make distclean
-   make TARGET=openmote-cc2538 coap-example-server.upload PORT=/dev/ttyUSBX
-   make TARGET=openmote-cc2538 border-router.upload PORT=/dev/ttyUSBX
+   make TARGET=openmote coap-example-server.upload PORT=/dev/ttyUSBX
+   make TARGET=openmote border-router.upload PORT=/dev/ttyUSBX
    #+end_src
 4) Iniciar el router de borde:
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX connect-router
+  make TARGET=openmote PORT=/dev/ttyUSBX connect-router
    #+end_src
 5) Realizar las comprobaciones con ping y aiocoap como se indicó en <<verificar conexión>>
 6) Hacer login a uno de los motes con servidor CoAP con:
    #+begin_src 
-  make TARGET=openmote-cc2538 PORT=/dev/ttyUSBX login
+  make TARGET=openmote PORT=/dev/ttyUSBX login
    #+end_src
    Presionar enter una vez que se ingresa para obtener un prompt. 
    Escribir =tsch-status= y verificar que en el resultado se encuentre en 1 =Is associated= y

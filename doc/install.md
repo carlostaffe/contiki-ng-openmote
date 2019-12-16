@@ -60,7 +60,7 @@ El router de roberto deberia difundir la ruta a la subred 2801:1e:4007:c0da::/64
 
 'NOTA' para compilación de motes Rev A1 
 
-	make TARGET=openmote-cc2538  BOARD_REVISION=REV_A1 PORT=/dev/ttyUSBXX programa_a_cargar.upload
+	make TARGET=openmote  BOARD_REVISION=REV_A1 PORT=/dev/ttyUSBXX programa_a_cargar.upload
 
 # compilacion del router de borde (conectado al USB0)
 
@@ -71,20 +71,20 @@ caso contrario lo hace con la red fd00::
 
 	cd rpl-border-router/
 	make distclean
-	make TARGET=openmote-cc2538 
-	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 border-router.upload
+	make TARGET=openmote 
+	make TARGET=openmote PORT=/dev/ttyUSB0 border-router.upload
 	cd ..
 
 En nuestro caso la ip del router de borde es 2801:1e:4007:c0da:212:4b00:613:f6d/64
 
 # compilacion de hello word en motes conectados (al USB1,2 y 3
 	cd hello-world/
-	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB(1,2 o 3) hello-world.upload
+	make TARGET=openmote PORT=/dev/ttyUSB(1,2 o 3) hello-world.upload
 	cd ..
 
 # compilacion de coap en motes(motes conectados al USB1,2 y 3
 	cd apps/coap-example-server 
-	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB(1,2 o 3) coap-example-server.upload
+	make TARGET=openmote PORT=/dev/ttyUSB(1,2 o 3) coap-example-server.upload
 
 
 # en nuestro caso la ip de los otros motes es
@@ -97,7 +97,7 @@ En nuestro caso la ip del router de borde es 2801:1e:4007:c0da:212:4b00:613:f6d/
 Hay un tmux corriendo 
 
 	tmux -l  ( una sesion corre el connect-router y la otra la app de python que consume coap y escribe en la influxdb
-	make TARGET=openmote-cc2538 PORT=/dev/ttyUSB0 connect-router
+	make TARGET=openmote PORT=/dev/ttyUSB0 connect-router
 
 TODO: hacer que pushee con llaves
 

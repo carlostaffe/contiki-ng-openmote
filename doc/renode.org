@@ -220,7 +220,7 @@ Es crítico agregar el =CFLAG= =-g= puesto que esto habilita la compilación con
 
 Con esto el comando para compilar y cargar el binario a la simulación es:
 #+begin_src bash
-make renode TARGET=openmote-cc2538 SCRIPT=hello.resc 
+make renode TARGET=openmote SCRIPT=hello.resc 
 #+end_src
 *** Analizar el tráfico de red
 Es posible lanzar una sesión de Wireshark que analice el tráfico wireless con :
