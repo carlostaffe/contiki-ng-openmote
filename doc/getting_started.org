@@ -5,7 +5,7 @@
      make TARGET=openmote PORT=/dev/ttyUSB0 connect-router
    #+end_src
 * rpl+coap
-En este escenario se tien un router de borde conectado a motes con servidores coap.
+En este escenario se tiene un router de borde conectado a motes con servidores coap.
 
 
 ** rpl-border-router

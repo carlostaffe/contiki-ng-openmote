@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-
-# This file is part of the Python aiocoap library project.
-#
-# Copyright (c) 2012-2014 Maciej Wasilak <http://sixpinetrees.blogspot.com/>,
-#               2013-2014 Christian Amsüss <c.amsuess@energyharvesting.at>
-#
-# aiocoap is free software, this file is published under the MIT license as
-# described in the accompanying LICENSE file.
-
-#!/usr/bin/env python3
 import threading
 from random import randrange
+# from blessed import Terminal
 
 import logging
 import asyncio
@@ -23,45 +14,22 @@ from time import sleep
 import urllib.request
 from bs4 import BeautifulSoup
 import datetime
+import re
 
-# en orden decreciente de verbosidad
-# CRITICAL; ERROR; WARNING; INFO; DEBUG
-logging.basicConfig(level=logging.INFO)
+from vars import logging_file, border_router, location, path_energia, \
+    path_temperatura, path_luz, path_all,  nodes
 
-logging_file = logging.FileHandler('periodic_get.log')
-logging_file.setLevel(logging.INFO)
-
-# router de borde al cual se le pregunta que nodos conoce
-border_router = '2801:1e:4007:c0da:212:4b00:615:a4e1'
-
-# ubicacion de los motes, utilizado para etiquetar los datos
-location = 'Mendoza'
-
-# path a los recursos del servidor coap
-# FIXME: Interrogar a los motes para descubrir qué recursos encuentran disponibles
-path_energia = 'test/energest'
-path_temperatura = 'sensors/temperature'
-path_luz = 'sensors/light'
-
-path_all = [path_energia, path_temperatura, path_luz]
+# term = Terminal()
 
 # conexion a influxdb
-client = InfluxDBClient(host='localhost', port=8086, database='iot_tst')
+idb_client = InfluxDBClient(host='localhost', port=8086, database='iot_tst')
 
-# lista de nodos en la red segun el coordinador
-nodes = []
-
-# estructura con un contexto y mensajes para cada endpoint
-endpoints = {'protocols': [], 'messages': []}
-
-# requests
-requests = []
 
 def influx_post_data(device, region, datos):
-    ''' Funcion para almacenar datos en InfluxDB
-        Según tenga uno o más valores, el dato es almacenado como
-        lectura de temperatura o energía respectivamente.
-    '''
+    """ Funcion para almacenar datos en InfluxDB
+        Según sea el formato del dato recibido, se almacena en una u otra
+        tabla de la BD.
+    """
 
     if (len(datos) == 1):
         datos = datos[0]
@@ -122,7 +90,7 @@ def influx_post_data(device, region, datos):
 
     # imprimir el dato y guardarlo en InfluxDB
     logging.debug("Write point: {0}".format(json))
-    client.write_points(json)
+    idb_client.write_points(json)
 
 
 def get_nodes():
@@ -143,104 +111,124 @@ def get_nodes():
             nodes.append(node)
 
 
-async def send_requests():
-    ''' En esta función se envian las peticiones en paralelo
-        Importante notar que no es posible predecir en que orden
-        arriban las respuestas.
-    '''
+class Client:
+    """
+    Cada Client representa una conexión a un nodo único.
+    Contiene las variables que representan a un nodo.
+    Y las funciones necesarias para realizar solicitudes a los nodos.
+    """
+    def __init__(self, ipv6, interval):
+        self.ipv6 = ipv6
+        self.id = str(ipv6[-4::]).replace(':', '0')
+        self.interval = interval
+        self.resources = []
 
-    while True:
-        # los mensajes son consumibles, con lo cual es necesario
-        # recrearlos en cada iteracion
+    async def _init(self):
+        self.protocol = await aiocoap.Context.create_client_context()
+        await self.get_resources()
 
-        print("Requests: {0}".format( requests ))
+    async def get_resources(self):
+        """
+        @brief      Obtiene via CoAP los recursos que sirve cada nodo bajo su
+                    well-known
+        """
+        request = aiocoap.Message(code=aiocoap.Code.GET,
+                                  uri='coap://[' + self.ipv6 + ']/' +
+                                  '.well-known/core')
 
-        for i in range(len(endpoints['protocols'])):
-            messages = endpoints['messages'][i]
-            print("Mensajes: {0} ".format(len(messages)))
+        response = await self.protocol.request(request).response
 
-            for msg in messages:
-                try:
-                    r = await msg.response
-                    datos = str(r.payload).split("'")[1]
-                    datos = datos.split(";")
+        cadena = str(response.payload)
+        coleccion = cadena.split(',')
+        coleccion = re.findall('\<[\w\-\/]+\>', cadena)
+        print(f"Nodo {self.id} tiene disponibles los recursos {coleccion}")
+        for ele in coleccion:
+            self.resources.append(ele[1:-1])
 
-                except Exception as e:
-                    logging.error('[FATAL] No se pudo obtener el recurso CoAP')
-                    print(e)
+    async def format_requests(self):
+        """
+        @brief      Crea las peticiones N CoAP. Donde N = nodos*recursos de cada nodo.
+                    Ademas postea los datos a influxdb.
 
+        """
+        requests = [(aiocoap.Message(code=aiocoap.Code.GET,
+                                     uri='coap://[' + self.ipv6 + ']' + path))
+                    for path in self.resources]
+        for request in requests:
+            try:
+                response = await self.protocol.request(request).response
+            except Exception as e:
+                print('Failed to fetch resource:')
+                print(e)
+            else:
+                datos = str(response.payload).split("'")[1]
+                datos = datos.split(";")
+                if (len(datos) not in [1, 7]):
+                    raise Exception(
+                        f"[FATAL] El dato obtenido no tiene el formato requerido: {datos}"
+                    )
                 else:
-                    if (len(datos) not in [1, 7]):
-                        raise Exception(
-                            "[FATAL] El dato obtenido no tiene el formato requerido: {0}"
-                            .format(datos))
+                    # with term.location(0, term.height - 1):
+                    # logging.info(term.bold(self.id) + f'>>> Result: {datos}')
+                    logging.info(f'{self.id}>>> Result: {datos}')
+                    influx_post_data(self.id, location, datos)
+                logging.debug(f'{self.id} >>> Result: {datos}')
 
-                # utilizo los ultimos 4 nros del eui64 como tag de la BD
-                device_id = str(r.remote).split(']:')[0][-4::]
-                device_id = device_id.replace(':', '0')
+    async def send_requests(self):
+        """
+        @brief      Loop infinito que envía las peticiones CoAP y luego espera
+                    self.interval segundos.
+                    Con una probabilidad de 1% se actualiza la lista de nodos.
+        """
+        while True:
+            try:
+                logging.debug(f"Enviando petición desde cliente {self.id}")
+                await self.format_requests()
+                await asyncio.sleep(self.interval)
+                # if randrange(0, 100) <= 1:
+                #     get_nodes()
+            except Exception as e:
+                print(f"send_request except:{e}")
 
-                logging.info("[INFO] Obtenido {0} de {1}".format(
-                    datos, device_id))
-                influx_post_data(device_id, location, datos)
-                await asyncio.sleep(5)  # pause 5 seconds
-
-                # actualizo la lista de nodos con probabilidad del 5%
-                if randrange(0, 100) < 5:
-                    del nodes[:]
-                    get_nodes()
-                    init_requests()
-                    logging.info("Creadas {0} peticiones".format(
-                        len(endpoints['messages']) * len(nodes)))
-
-        for context in endpoints['protocols']:
-            endpoints['messages'].append(
-                [context.request(request) for request in requests])
-
-
-
-async def init_requests():
-    ''' Inicializa los objetos Context (representa un endpoint) y
-        requests (representa una solicitud al endpoint)
-        A diferencia del objeto messages, los dos primeros no son
-        consumibles
-    '''
-
-    for i in range(len(nodes)):
-        global requests = [(aiocoap.Message(code=aiocoap.Code.GET,
-                                     uri='coap://[' + nodes[i] + ']/' + path))
-                    for path in path_all]
-
-        endpoints['protocols'].append(await
-                                      aiocoap.Context.create_client_context())
-
-        for context in endpoints['protocols']:
-            endpoints['messages'].append(
-                [context.request(request) for request in requests])
-
-        logging.debug("Inicializado request para {0} ".format(nodes[i]))
+class Context_Manager():
+    pass
 
 
 def signal_handler(signal, frame):
     logging.warning('Interrupción de teclado. Finalizando.')
-    loop.run_until_complete(loop.shutdown_asyncgens())
-    loop.stop()
-    loop.close()
+    asyncio.gather(*asyncio.all_tasks()).cancel()
     sys.exit(0)
 
 
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
+async def main():
 
-    signal.signal(signal.SIGINT, signal_handler)
-
+    # descubre los nodos que conoce el border router
     get_nodes()
 
-    if not nodes:
+    if not bool(nodes):
         logging.warning('No se han encontrado nodos. Terminando ...')
         sys.exit(0)
 
-    loop.run_until_complete(init_requests())
-    asyncio.ensure_future(send_requests())
+    clients = []
+    # Se instancia la clase Client, uno por cada nodo
+    for node in nodes:
+        clients.append(Client(node, 10))
 
-    loop.run_forever()
-    loop.close()
+    tasks = []
+    for client in clients:
+        await client._init()
+        tasks.append(client.send_requests())
+
+    res = await asyncio.gather(*tasks)
+
+
+if __name__ == "__main__":
+    import pathlib
+    import sys
+
+    # algunas funciones asíncronas sólo están disponibles a partir de
+    # python3.7
+    assert sys.version_info >= (3, 7), "Script requires Python 3.7+."
+
+    signal.signal(signal.SIGINT, signal_handler)
+    asyncio.run(main())
