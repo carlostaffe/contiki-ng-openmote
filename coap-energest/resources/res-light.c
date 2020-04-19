@@ -40,8 +40,6 @@
 
 #include "contiki.h"
 
-#if PLATFORM_HAS_TEMPERATURE
-
 #include "coap-engine.h"
 #include <limits.h>
 #include <stdio.h>
@@ -62,18 +60,12 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
 /* static void res_periodic_handler(void); */
 
 #define MAX_AGE 60
-/* #define INTERVAL_MIN 5 */
-/* #define INTERVAL_MAX (MAX_AGE - 1) */
-/* #define CHANGE 0.1 */
-
-/* static int32_t interval_counter = INTERVAL_MIN; */
-/* static int32_t temperature_old = INT_MIN; */
 
 static int32_t light = 0;
 
 PERIODIC_RESOURCE(res_light,
                   "title=\"Light\";rt=\"Light\";obs",
-                  res_get_handler, NULL, NULL, NULL, 1000,
+                  res_get_handler, NULL, NULL, NULL, 10000,
                   NULL);
 
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
@@ -117,4 +109,3 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
 /*     coap_notify_observers(&res_temperature); */
 /*   } */
 /* } */
-#endif /* PLATFORM_HAS_TEMPERATURE */

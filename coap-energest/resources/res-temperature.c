@@ -40,8 +40,6 @@
 
 #include "contiki.h"
 
-#if PLATFORM_HAS_TEMPERATURE
-
 #include "coap-engine.h"
 #include <limits.h>
 #include <stdio.h>
@@ -59,23 +57,23 @@
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
                             uint8_t *buffer, uint16_t preferred_size,
                             int32_t *offset);
-static void res_periodic_handler(void);
+/* static void res_periodic_handler(void); */
 
 #define MAX_AGE 60
 #define INTERVAL_MIN 5
 #define INTERVAL_MAX (MAX_AGE - 1)
 #define CHANGE 0.1
 
-static int32_t interval_counter = INTERVAL_MIN;
-static int32_t temperature_old = INT_MIN;
+/* static int32_t interval_counter = INTERVAL_MIN; */
+/* static int32_t temperature_old = INT_MIN; */
 
 static int32_t temperature = 0;
 static int32_t humidity = 0;
 
 PERIODIC_RESOURCE(res_temperature,
                   "title=\"Temperature\";rt=\"Temperature\";obs",
-                  res_get_handler, NULL, NULL, NULL, 1000,
-                  res_periodic_handler);
+                  res_get_handler, NULL, NULL, NULL, 10000,
+                  NULL);
 
 static void res_get_handler(coap_message_t *request, coap_message_t *response,
                             uint8_t *buffer, uint16_t preferred_size,
@@ -104,19 +102,18 @@ static void res_get_handler(coap_message_t *request, coap_message_t *response,
  * implemented for each PERIODIC_RESOURCE. It will be called by the coap_manager
  * process with the defined period.
  */
-static void res_periodic_handler() {
-  /* int temperature = temperature_sensor.value(0); */
-  int temperature = sht21.value(SHT21_READ_TEMP);
-  ++interval_counter;
+/* static void res_periodic_handler() { */
+/*   /\* int temperature = temperature_sensor.value(0); *\/ */
+/*   int temperature = sht21.value(SHT21_READ_TEMP); */
+/*   ++interval_counter; */
 
-  if ((abs(temperature - temperature_old) >= CHANGE &&
-       interval_counter >= INTERVAL_MIN) ||
-      interval_counter >= INTERVAL_MAX) {
-    interval_counter = 0;
-    temperature_old = temperature;
-    /* Notify the registered observers which will trigger the res_get_handler to
-     * create the response. */
-    coap_notify_observers(&res_temperature);
-  }
-}
-#endif /* PLATFORM_HAS_TEMPERATURE */
+/*   if ((abs(temperature - temperature_old) >= CHANGE && */
+/*        interval_counter >= INTERVAL_MIN) || */
+/*       interval_counter >= INTERVAL_MAX) { */
+/*     interval_counter = 0; */
+/*     temperature_old = temperature; */
+/*     /\* Notify the registered observers which will trigger the res_get_handler to */
+/*      * create the response. *\/ */
+/*     coap_notify_observers(&res_temperature); */
+/*   } */
+/* } */
