@@ -10,6 +10,7 @@
 
 #!/usr/bin/env python3
 import threading
+from random import randrange
 
 import logging
 import asyncio
@@ -23,9 +24,12 @@ import urllib.request
 from bs4 import BeautifulSoup
 import datetime
 
-# en orden decreciente de verbosidad 
-# WARNING; INFO; DEBUG
+# en orden decreciente de verbosidad
+# CRITICAL; ERROR; WARNING; INFO; DEBUG
 logging.basicConfig(level=logging.INFO)
+
+logging_file = logging.FileHandler('periodic_get.log')
+logging_file.setLevel(logging.INFO)
 
 # router de borde al cual se le pregunta que nodos conoce
 border_router = '2801:1e:4007:c0da:212:4b00:615:a4e1'
@@ -34,14 +38,24 @@ border_router = '2801:1e:4007:c0da:212:4b00:615:a4e1'
 location = 'Mendoza'
 
 # path a los recursos del servidor coap
+# FIXME: Interrogar a los motes para descubrir qué recursos encuentran disponibles
 path_energia = 'test/energest'
 path_temperatura = 'sensors/temperature'
 path_luz = 'sensors/light'
+
 path_all = [path_energia, path_temperatura, path_luz]
 
 # conexion a influxdb
 client = InfluxDBClient(host='localhost', port=8086, database='iot_tst')
 
+# lista de nodos en la red segun el coordinador
+nodes = []
+
+# estructura con un contexto y mensajes para cada endpoint
+endpoints = {'protocols': [], 'messages': []}
+
+# requests
+requests = []
 
 def influx_post_data(device, region, datos):
     ''' Funcion para almacenar datos en InfluxDB
@@ -52,7 +66,7 @@ def influx_post_data(device, region, datos):
     if (len(datos) == 1):
         datos = datos[0]
         if (datos == 'l:-1' or datos == 't:-1'):
-            logging.info("Formato o valor incorrecto")
+            logging.warning("Formato o valor incorrecto")
             return
         if (datos.startswith('l:')):
             json = [{
@@ -79,7 +93,7 @@ def influx_post_data(device, region, datos):
                 }
             }]
         else:
-            logging.info("[FATAL] Dato no reconocido: {0}".format(datos))
+            logging.error("[FATAL] Dato no reconocido: {0}".format(datos))
             return
     else:
         time, time_ticks, cpu, lpm, deep_lpm, tx, rx = datos
@@ -116,45 +130,43 @@ def get_nodes():
         regrese los nodos que tiene al alcance.
         TODO: Esto se va a romper cuando existan nodos con rank>1
     '''
-    nodes = []
     response = urllib.request.urlopen('http://[' + border_router + ']/')
     html = response.read()
     parsed_html = BeautifulSoup(html, "lxml")
     li = parsed_html.body.find_all('li')
+    logging.info("[INFO] Nodos accesibles :")
     for item in li:
         # parsea el list item del html obtenido
         node = item.contents[0].split(' (')[0]
         if (not node.startswith('fe80')):
-            logging.info("Nodo encontrado:" + str(node))
+            logging.info("\t" + str(node))
             nodes.append(node)
-    return nodes
 
 
-async def send_requests(nodes):
+async def send_requests():
     ''' En esta función se envian las peticiones en paralelo
         Importante notar que no es posible predecir en que orden
         arriban las respuestas.
     '''
 
-    # obtengo una estructura formateada con una lista de request
-
-
     while True:
-        endpoints = await format_requests(nodes)
+        # los mensajes son consumibles, con lo cual es necesario
+        # recrearlos en cada iteracion
 
-        for i in range(len(nodes)):
+        print("Requests: {0}".format( requests ))
+
+        for i in range(len(endpoints['protocols'])):
             messages = endpoints['messages'][i]
-            print("Mensajes: {0} \n {1}".format(len(messages), messages))
+            print("Mensajes: {0} ".format(len(messages)))
 
             for msg in messages:
                 try:
                     r = await msg.response
                     datos = str(r.payload).split("'")[1]
                     datos = datos.split(";")
-                    print(datos)
 
                 except Exception as e:
-                    logging.info('[FATAL] No se pudo obtener el recurso CoAP')
+                    logging.error('[FATAL] No se pudo obtener el recurso CoAP')
                     print(e)
 
                 else:
@@ -167,66 +179,50 @@ async def send_requests(nodes):
                 device_id = str(r.remote).split(']:')[0][-4::]
                 device_id = device_id.replace(':', '0')
 
-                logging.debug("[DEBUG] Obtenido {0} de {1}".format(
+                logging.info("[INFO] Obtenido {0} de {1}".format(
                     datos, device_id))
                 influx_post_data(device_id, location, datos)
                 await asyncio.sleep(5)  # pause 5 seconds
 
-async def format_requests(nodes):
-    ''' Crea el total de las peticiones.
-        Por cada nodo, se crean tantas peticiones como elementos contenga
-        la lista path_all
-        Si existen 2 nodos y 3 recursos coap, se crean 6 peticiones.
+                # actualizo la lista de nodos con probabilidad del 5%
+                if randrange(0, 100) < 5:
+                    del nodes[:]
+                    get_nodes()
+                    init_requests()
+                    logging.info("Creadas {0} peticiones".format(
+                        len(endpoints['messages']) * len(nodes)))
+
+        for context in endpoints['protocols']:
+            endpoints['messages'].append(
+                [context.request(request) for request in requests])
+
+
+
+async def init_requests():
+    ''' Inicializa los objetos Context (representa un endpoint) y
+        requests (representa una solicitud al endpoint)
+        A diferencia del objeto messages, los dos primeros no son
+        consumibles
     '''
 
-    # esta estructura contiene un handler (context) para cada nodo
-    # y la lista de mensajes que se enviaran en cada request
-    endpoints = {'protocols': [], 'messages': []}
-
     for i in range(len(nodes)):
-        requests = [(aiocoap.Message(code=aiocoap.Code.GET,
+        global requests = [(aiocoap.Message(code=aiocoap.Code.GET,
                                      uri='coap://[' + nodes[i] + ']/' + path))
-                    for path in path_all ]
+                    for path in path_all]
+
         endpoints['protocols'].append(await
-                                    aiocoap.Context.create_client_context())
-        endpoints['messages'].append(
-            [endpoints['protocols'][i].request(request) for request in requests])
+                                      aiocoap.Context.create_client_context())
 
-    logging.info(
-        "Creadas {0} peticiones por nodo. \n \t{1} nodos * {2} recursos.".format(
-            len(endpoints['messages']), len(nodes), len(path_all)))
+        for context in endpoints['protocols']:
+            endpoints['messages'].append(
+                [context.request(request) for request in requests])
 
-    return endpoints
-
-
-# async def main():
-#     # FIXME: no detecta nuevos nodos
-#     # obtener nodos de la red
-#     nodes = get_nodes()
-
-#     if not nodes:
-#         logging.warning('No se han encontrado nodos. Terminando ...')
-#         sys.exit(0)
-
-#     # crea y formatea la lista de peticiones
-#     requests = await format_requests(nodes)
-#     # asyncio.ensure_future(format_requests(nodes)requests)
-
-#     try:
-#         # asyncio.ensure_future(send_requests(requests, nodes))
-#         task = loop.create_task(send_requests(requests, nodes))
-#         # loop.run_forever()
-#         loop.run_until_complete(task)
-#     except KeyboardInterrupt:
-#         logging.warning('Interrupción de teclado. Finalizando.')
-#         try:
-#             sys.exit(0)
-#         except SystemExit:
-#             os._exit(0)
+        logging.debug("Inicializado request para {0} ".format(nodes[i]))
 
 
 def signal_handler(signal, frame):
     logging.warning('Interrupción de teclado. Finalizando.')
+    loop.run_until_complete(loop.shutdown_asyncgens())
     loop.stop()
     loop.close()
     sys.exit(0)
@@ -237,24 +233,14 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    nodes = get_nodes()
+    get_nodes()
 
     if not nodes:
         logging.warning('No se han encontrado nodos. Terminando ...')
         sys.exit(0)
 
-    asyncio.ensure_future(send_requests(nodes))
+    loop.run_until_complete(init_requests())
+    asyncio.ensure_future(send_requests())
 
     loop.run_forever()
     loop.close()
-#     requests = await format_requests(nodes)
-# try:
-#     task = loop.run_until_complete()
-# except KeyboardInterrupt:
-#     logging.warning('Interrupción de teclado. Finalizando.')
-#     try:
-#         sys.exit(0)
-#     except SystemExit:
-#         os._exit(0)
-# else:
-#     loop.close()

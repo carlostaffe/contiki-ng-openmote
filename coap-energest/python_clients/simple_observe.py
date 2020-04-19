@@ -25,15 +25,15 @@ import datetime
 logging.basicConfig(level=logging.INFO)
 
 # router de borde al cual se le pregunta que nodos conoce
-border_router = '2801:1e:4007:c0da:212:4b00:613:f6d'
+border_router = '2801:1e:4007:c0da:212:4b00:615:a4e1'
 
 # ubicacion de los motes, utilizado para etiquetar los datos
 location = 'Mendoza'
 
 # path a los recursos del servidor coap
-uri_energia = 'test/energest'
-uri_temperatura = 'sensors/temperature'
-uri_all = [uri_energia, uri_temperatura]
+path_energia = 'test/energest'
+path_temperatura = 'sensors/temperature'
+path_all = [uri_energia, uri_temperatura]
 
 # conexion a influxdb
 client = InfluxDBClient(host='localhost', port=8086, database='iot_tst')
@@ -47,6 +47,8 @@ def influx_post_data(device, region, datos):
 
     if (len(datos) == 1):
         temp = datos[0]
+        if(temp == '-1'):
+            return 
         json = [{
             "measurement": "temperatura",
             "tags": {
@@ -167,10 +169,10 @@ def format_requests(nodes):
     '''
 
     requests = [(aiocoap.Message(
-        code=aiocoap.Code.GET, uri='coap://[' + node + ']/' + uri, observe=0))
-                for uri in uri_all for node in nodes]
+        code=aiocoap.Code.GET, uri='coap://[' + node + ']/' + path, observe=0))
+                for path in path_all for node in nodes]
     logging.info("Creados %d peticiones. \n \t%d nodos * %d recursos." %
-          (len(requests), len(nodes), len(uri_all)))
+          (len(requests), len(nodes), len(path_all)))
     return requests
 
 
