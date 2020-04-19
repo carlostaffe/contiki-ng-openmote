@@ -51,7 +51,7 @@
 #include "lib/sensors.h"
 #include "sys/energest.h"
 
-#ifdef CONTIKI_TARGET_OPENMOTE_CC2538
+#ifdef CONTIKI_TARGET_OPENMOTE
 #include "adxl346.h"
 #include "dev/max44009.h"
 #include "dev/sht21.h"

@@ -49,10 +49,9 @@
 
 // CONFIGURACION LOG LEVEL
 #define LOG_LEVEL_APP LOG_LEVEL_DBG
-/* #define LOG_CONF_LEVEL_COAP LOG_LEVEL_DBG */
+#define LOG_CONF_LEVEL_COAP LOG_LEVEL_INFO
+#define LOG_CONF_LEVEL_RPL LOG_LEVEL_INFO
 /* #define LOG_CONF_LEVEL_MAIN LOG_LEVEL_DBG */
-
-#define PLATFORM_HAS_TEMPERATURE 1
 
 typedef struct {
 	unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm,
@@ -63,6 +62,7 @@ typedef struct {
 				       curr_deep_lpm;
 
 } energest_t;
+
 
 extern energest_t energy;
 #endif /* PROJECT_CONF_H_ */
